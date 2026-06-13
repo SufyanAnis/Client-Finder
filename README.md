@@ -18,7 +18,11 @@ to Excel. Built to match the Swift Labs aesthetic (dark, engineered).
 ## 1. Prerequisites
 
 - **Node.js 18+**
-- An **Anthropic API key** — create one at https://console.anthropic.com → *Settings → API Keys*. (Note: web search and model calls bill to this key. Keep lead counts modest while testing.)
+- **One AI key** — the server auto-detects which provider to use:
+  - **Free:** a **Google Gemini** key from https://aistudio.google.com (no credit card for the free tier). Set it as `GEMINI_API_KEY`. Uses Google Search grounding so leads are real, not invented.
+  - **Paid:** an **Anthropic** key from https://console.anthropic.com → *Settings → API Keys*. Set it as `ANTHROPIC_API_KEY`. (Web search and model calls bill to this key.)
+
+  If both are set, Anthropic wins. Keep lead counts modest while testing.
 
 ---
 
@@ -30,10 +34,13 @@ cp .env.example .env.local      # then paste your real key into .env.local
 npm run dev                     # open http://localhost:3000
 ```
 
-`.env.local`:
+`.env.local` — set ONE of these:
 ```
-ANTHROPIC_API_KEY=sk-ant-your-real-key
-# optional: ANTHROPIC_MODEL=claude-sonnet-4-6
+# Free:
+GEMINI_API_KEY=your-aistudio-key
+# Paid alternative:
+# ANTHROPIC_API_KEY=sk-ant-your-real-key
+# optional: GEMINI_MODEL=gemini-2.0-flash  /  ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 ---
@@ -43,9 +50,10 @@ ANTHROPIC_API_KEY=sk-ant-your-real-key
 **Option A — GitHub (recommended)**
 1. Push this folder to a new GitHub repo.
 2. Go to https://vercel.com → **Add New → Project** → import the repo.
-3. Before deploying, open **Environment Variables** and add:
-   - `ANTHROPIC_API_KEY` = your real key
-   - (optional) `ANTHROPIC_MODEL`
+3. Before deploying, open **Environment Variables** and add ONE of:
+   - `GEMINI_API_KEY` = your free Google AI Studio key, **or**
+   - `ANTHROPIC_API_KEY` = your paid Anthropic key
+   - (optional) `GEMINI_MODEL` / `ANTHROPIC_MODEL`
 4. Click **Deploy**. Done — you get a `*.vercel.app` URL. Add a custom domain in Project → Settings → Domains if you want.
 
 **Option B — Vercel CLI**
@@ -76,7 +84,7 @@ Both are straightforward add-ons to this codebase — ask and they can be wired 
 ## 5. Notes
 
 - **Function timeout** — web search + generation can take 20–40s. Vercel Hobby allows up to 60s (`maxDuration = 60` is set). If you hit timeouts, lower the lead count or upgrade the plan.
-- **Model name** — defaults to `claude-sonnet-4-6`; override with `ANTHROPIC_MODEL`. Verify current names at https://docs.claude.com.
+- **Provider & model** — with `GEMINI_API_KEY` set, defaults to `gemini-2.0-flash` (override with `GEMINI_MODEL`). With `ANTHROPIC_API_KEY` set, defaults to `claude-sonnet-4-6` (override with `ANTHROPIC_MODEL`). Gemini is free; Anthropic is paid. Verify current model names at https://aistudio.google.com or https://docs.claude.com.
 - **Contact data** — emails/phones/LinkedIn from web search are best-effort and often blank. The pipeline cells are editable for exactly this reason; for verified contacts at scale, use a dedicated data provider.
 - **Sending** — this tool finds and drafts only. You review and send. Keep volume sane and personal to stay off spam filters and within anti-spam law (CAN-SPAM / GDPR / PECR).
 
@@ -94,6 +102,8 @@ swiftlabs-lead-finder/
 │   └── page.jsx                  # nav + hero + footer shell
 ├── components/
 │   └── LeadApp.jsx               # finder + pipeline + Excel export (client)
+├── lib/
+│   └── llm.js                    # provider helper (Gemini free / Anthropic paid)
 ├── .env.example
 ├── next.config.mjs
 └── package.json

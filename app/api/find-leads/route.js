@@ -1,16 +1,14 @@
 // app/api/find-leads/route.js
 // Server-side: holds the secret API key and runs the live web-search prospecting call.
 
+import { generate, MISSING_KEY_MESSAGE, activeProvider } from "../../../lib/llm";
+
 export const runtime = "nodejs";
 export const maxDuration = 60; // web search + generation can take a while; Hobby allows up to 60s
 
-const API = "https://api.anthropic.com/v1/messages";
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
-
 export async function POST(req) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    return Response.json({ error: "Server is missing ANTHROPIC_API_KEY." }, { status: 500 });
+  if (!activeProvider()) {
+    return Response.json({ error: MISSING_KEY_MESSAGE }, { status: 500 });
   }
 
   let body;
@@ -28,52 +26,16 @@ Return ONLY a valid JSON array — no markdown fences, no commentary before or a
 {"company":string,"website":string (bare domain),"location":string,"fit_score":number 0-100,"why_fit":string (one specific sentence about THIS company),"signal":string (the concrete trigger to contact them now),"contact_role":string (the role to target),"email":string,"phone":string,"linkedin":string}`;
 
   try {
-    let messages = [{ role: "user", content: prompt }];
-    let data;
-    // the server-side web_search loop can return stop_reason "pause_turn" with an
-    // incomplete turn — resume by re-sending the assistant content (bounded)
-    for (let turn = 0; ; turn++) {
-      const res = await fetch(API, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 4000,
-          messages,
-          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
-        }),
-      });
-
-      if (!res.ok) {
-        const t = await res.text();
-        return Response.json({ error: "Anthropic API error " + res.status, detail: t.slice(0, 400) }, { status: 502 });
-      }
-
-      data = await res.json();
-      if (data.stop_reason === "pause_turn" && turn < 2) {
-        messages = [...messages, { role: "assistant", content: data.content }];
-        continue;
-      }
-      break;
-    }
-
-    if (data.stop_reason === "max_tokens") {
+    const result = await generate({ prompt, maxTokens: 4000, webSearch: true });
+    if (!result.ok) return Response.json({ error: result.error, detail: result.detail }, { status: result.status });
+    if (result.stop === "max_tokens") {
       return Response.json({ error: "The model ran out of room before finishing the list — try a lower lead count." }, { status: 502 });
     }
-    if (data.stop_reason === "refusal") {
+    if (result.stop === "refusal") {
       return Response.json({ error: "The model declined this request — adjust the targeting and try again." }, { status: 502 });
     }
 
-    const text = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-
+    const text = result.text;
     const s = text.indexOf("["), e = text.lastIndexOf("]");
     if (s === -1 || e === -1) return Response.json({ error: "Could not parse leads from the model output." }, { status: 502 });
 
