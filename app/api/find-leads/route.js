@@ -93,8 +93,66 @@ export async function POST(req) {
       }));
     if (!leads.length) return Response.json({ error: "No usable leads in the model output — try again." }, { status: 502 });
 
+    leads = await enrichContacts(leads, str);
+
     return Response.json({ leads });
   } catch (err) {
     return Response.json({ error: "Request failed: " + (err?.message || "unknown") }, { status: 500 });
+  }
+}
+
+// Best-effort: for leads missing an email or phone, search the web for public
+// contact details and fill the blanks. Strictly extractive — the model is told
+// to use only details that appear in the results, never to invent them. Returns
+// the leads unchanged if no search provider is configured or anything fails.
+async function enrichContacts(leads, str) {
+  if (!searchAvailable()) return leads;
+  const needing = leads.filter((l) => !l.email || !l.phone);
+  if (!needing.length) return leads;
+
+  try {
+    const searched = await Promise.all(
+      needing.map((l) =>
+        webSearch(`${l.company} ${l.location} official contact email address phone number`, 5)
+          .then((results) => ({ company: l.company, results }))
+          .catch(() => ({ company: l.company, results: [] }))
+      )
+    );
+    const ctx = searched
+      .filter((s) => s.results.length)
+      .map((s) => `## ${s.company}\n` + s.results.map((r) => `${r.title}\n${r.url}\n${r.content}`).join("\n---\n"))
+      .join("\n\n");
+    if (!ctx) return leads;
+
+    const prompt =
+`From the web search results below, extract PUBLIC contact details for each company. Use ONLY details that literally appear in the results — never guess or invent an email, phone, or LinkedIn URL. Prefer a generic company email (info@/hello@/contact@) and a main phone number (with country code if shown). If a detail isn't present, use an empty string.
+Return ONLY a valid JSON array, one object per company, no markdown:
+[{"company":string,"email":string,"phone":string,"linkedin":string}]
+
+${ctx}`;
+
+    const enr = await generate({ prompt, maxTokens: 1500, webSearch: false });
+    if (!enr.ok || enr.stop !== "ok") return leads;
+    const a = enr.text.indexOf("["), b = enr.text.lastIndexOf("]");
+    if (a === -1 || b === -1) return leads;
+    let contacts;
+    try { contacts = JSON.parse(enr.text.slice(a, b + 1)); } catch { return leads; }
+    if (!Array.isArray(contacts)) return leads;
+
+    const byName = new Map(
+      contacts.filter((c) => c && c.company).map((c) => [String(c.company).toLowerCase(), c])
+    );
+    return leads.map((l) => {
+      const c = byName.get(l.company.toLowerCase());
+      if (!c) return l;
+      return {
+        ...l,
+        email: l.email || str(c.email),
+        phone: l.phone || str(c.phone),
+        linkedin: l.linkedin || str(c.linkedin),
+      };
+    });
+  } catch {
+    return leads; // enrichment is best-effort
   }
 }

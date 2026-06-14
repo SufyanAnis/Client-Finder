@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Loader2, Copy, Check, MapPin, Building2, Sparkles, ArrowRight,
-  Mail, Linkedin, MessageCircle, Target, RotateCcw, Globe, Zap,
+  Mail, Phone, Linkedin, MessageCircle, Target, RotateCcw, Globe, Zap,
   AlertTriangle, Radar, BookmarkPlus, BookmarkCheck, Trash2, FileSpreadsheet
 } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -225,7 +225,9 @@ export default function LeadApp() {
                     {L.website && <span><Globe size={12} /><a href={"https://" + cleanDomain(L.website)} target="_blank" rel="noreferrer">{cleanDomain(L.website)}</a></span>}
                     {L.location && <span><MapPin size={12} />{L.location}</span>}
                     {L.contact_role && <span><Target size={12} />{L.contact_role}</span>}
-                    {L.email && <span><Mail size={12} />{L.email}</span>}
+                    {L.email && <span><Mail size={12} /><a href={"mailto:" + L.email}>{L.email}</a></span>}
+                    {L.phone && <span><Phone size={12} /><a href={"tel:" + L.phone.replace(/\s+/g, "")}>{L.phone}</a></span>}
+                    {L.linkedin && <span><Linkedin size={12} /><a href={L.linkedin.startsWith("http") ? L.linkedin : "https://" + L.linkedin} target="_blank" rel="noreferrer">LinkedIn</a></span>}
                   </div>
                 </div>
                 <div className="score"><div className="n" style={{ color: scoreColor(L.fit_score) }}>{L.fit_score}</div><div className="l">fit</div></div>

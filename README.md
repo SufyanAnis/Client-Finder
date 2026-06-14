@@ -87,7 +87,8 @@ Both are straightforward add-ons to this codebase — ask and they can be wired 
 
 - **Function timeout** — web search + generation can take 20–40s. Vercel Hobby allows up to 60s (`maxDuration = 60` is set). If you hit timeouts, lower the lead count or upgrade the plan.
 - **Provider & model** — Groq defaults to `llama-3.3-70b-versatile` (override with `GROQ_MODEL`); Anthropic defaults to `claude-sonnet-4-6` (override with `ANTHROPIC_MODEL`); Gemini defaults to `gemini-2.0-flash` (`GEMINI_MODEL`). Verify current model names at https://console.groq.com/docs/models or https://docs.claude.com.
-- **Free-tier limits** — Groq and Tavily free tiers are rate-limited (fine for normal lead-finding; don't hammer them). Tavily's free plan covers ~1,000 searches/month — one per "Find leads" run.
+- **Contact enrichment** — after finding companies, the finder runs an extra web search per company for public email/phone/LinkedIn and fills in whatever it can (strictly from real pages — never invented). Blanks are normal; the pipeline cells stay editable.
+- **Free-tier limits** — Groq and Tavily free tiers are rate-limited (fine for normal use; don't hammer them). Each "Find leads" run uses Tavily searches = 1 (find) + up to N (one per company for contacts), so a 5-lead run is ~6 searches. Tavily's free plan covers ~1,000 searches/month.
 - **Contact data** — emails/phones/LinkedIn from web search are best-effort and often blank. The pipeline cells are editable for exactly this reason; for verified contacts at scale, use a dedicated data provider.
 - **Sending** — this tool finds and drafts only. You review and send. Keep volume sane and personal to stay off spam filters and within anti-spam law (CAN-SPAM / GDPR / PECR).
 
