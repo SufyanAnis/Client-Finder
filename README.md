@@ -18,11 +18,12 @@ to Excel. Built to match the Swift Labs aesthetic (dark, engineered).
 ## 1. Prerequisites
 
 - **Node.js 18+**
-- **One AI key** — the server auto-detects which provider to use:
-  - **Free:** a **Google Gemini** key from https://aistudio.google.com (no credit card for the free tier). Set it as `GEMINI_API_KEY`. Uses Google Search grounding so leads are real, not invented.
-  - **Paid:** an **Anthropic** key from https://console.anthropic.com → *Settings → API Keys*. Set it as `ANTHROPIC_API_KEY`. (Web search and model calls bill to this key.)
+- **AI keys** — the server auto-detects the provider from whichever key is set:
+  - **Free (recommended):** **Groq** (LLM) + **Tavily** (web search). Get a free Groq key at https://console.groq.com and a free Tavily key at https://tavily.com. Set `GROQ_API_KEY` and `TAVILY_API_KEY`. Groq has no built-in web search, so Tavily supplies the live results the model turns into real leads. Both free tiers work worldwide (including Pakistan).
+  - **Paid:** **Anthropic** from https://console.anthropic.com → *Settings → API Keys*. Set `ANTHROPIC_API_KEY` — it searches the web natively, so no Tavily needed.
+  - **Gemini:** a free key from https://aistudio.google.com works as `GEMINI_API_KEY`, **but Google's free tier is region-locked and unavailable in some countries (incl. Pakistan)**, where it returns `limit: 0`.
 
-  If both are set, Anthropic wins. Keep lead counts modest while testing.
+  Precedence if several are set: Anthropic → Gemini → Groq. Keep lead counts modest while testing.
 
 ---
 
@@ -34,13 +35,14 @@ cp .env.example .env.local      # then paste your real key into .env.local
 npm run dev                     # open http://localhost:3000
 ```
 
-`.env.local` — set ONE of these:
+`.env.local`:
 ```
-# Free:
-GEMINI_API_KEY=your-aistudio-key
-# Paid alternative:
+# Free path — Groq (LLM) + Tavily (web search):
+GROQ_API_KEY=your-groq-key
+TAVILY_API_KEY=your-tavily-key
+# Paid alternative (no Tavily needed):
 # ANTHROPIC_API_KEY=sk-ant-your-real-key
-# optional: GEMINI_MODEL=gemini-2.0-flash  /  ANTHROPIC_MODEL=claude-sonnet-4-6
+# optional: GROQ_MODEL=llama-3.3-70b-versatile  /  ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 ---
@@ -50,10 +52,10 @@ GEMINI_API_KEY=your-aistudio-key
 **Option A — GitHub (recommended)**
 1. Push this folder to a new GitHub repo.
 2. Go to https://vercel.com → **Add New → Project** → import the repo.
-3. Before deploying, open **Environment Variables** and add ONE of:
-   - `GEMINI_API_KEY` = your free Google AI Studio key, **or**
-   - `ANTHROPIC_API_KEY` = your paid Anthropic key
-   - (optional) `GEMINI_MODEL` / `ANTHROPIC_MODEL`
+3. Before deploying, open **Environment Variables** and add either:
+   - `GROQ_API_KEY` **and** `TAVILY_API_KEY` (free path), **or**
+   - `ANTHROPIC_API_KEY` (paid; no Tavily needed)
+   - (optional) `GROQ_MODEL` / `ANTHROPIC_MODEL`
 4. Click **Deploy**. Done — you get a `*.vercel.app` URL. Add a custom domain in Project → Settings → Domains if you want.
 
 **Option B — Vercel CLI**
@@ -84,7 +86,8 @@ Both are straightforward add-ons to this codebase — ask and they can be wired 
 ## 5. Notes
 
 - **Function timeout** — web search + generation can take 20–40s. Vercel Hobby allows up to 60s (`maxDuration = 60` is set). If you hit timeouts, lower the lead count or upgrade the plan.
-- **Provider & model** — with `GEMINI_API_KEY` set, defaults to `gemini-2.0-flash` (override with `GEMINI_MODEL`). With `ANTHROPIC_API_KEY` set, defaults to `claude-sonnet-4-6` (override with `ANTHROPIC_MODEL`). Gemini is free; Anthropic is paid. Verify current model names at https://aistudio.google.com or https://docs.claude.com.
+- **Provider & model** — Groq defaults to `llama-3.3-70b-versatile` (override with `GROQ_MODEL`); Anthropic defaults to `claude-sonnet-4-6` (override with `ANTHROPIC_MODEL`); Gemini defaults to `gemini-2.0-flash` (`GEMINI_MODEL`). Verify current model names at https://console.groq.com/docs/models or https://docs.claude.com.
+- **Free-tier limits** — Groq and Tavily free tiers are rate-limited (fine for normal lead-finding; don't hammer them). Tavily's free plan covers ~1,000 searches/month — one per "Find leads" run.
 - **Contact data** — emails/phones/LinkedIn from web search are best-effort and often blank. The pipeline cells are editable for exactly this reason; for verified contacts at scale, use a dedicated data provider.
 - **Sending** — this tool finds and drafts only. You review and send. Keep volume sane and personal to stay off spam filters and within anti-spam law (CAN-SPAM / GDPR / PECR).
 
@@ -103,7 +106,8 @@ swiftlabs-lead-finder/
 ├── components/
 │   └── LeadApp.jsx               # finder + pipeline + Excel export (client)
 ├── lib/
-│   └── llm.js                    # provider helper (Gemini free / Anthropic paid)
+│   ├── llm.js                    # provider helper (Groq free / Anthropic paid / Gemini)
+│   └── search.js                 # Tavily web search (feeds Groq real companies)
 ├── .env.example
 ├── next.config.mjs
 └── package.json

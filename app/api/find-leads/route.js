@@ -1,32 +1,64 @@
 // app/api/find-leads/route.js
-// Server-side: holds the secret API key and runs the live web-search prospecting call.
+// Server-side: holds the secret key(s) and runs the live prospecting call.
+// Anthropic/Gemini search the web themselves; Groq has no native search, so we
+// run a Tavily search first and feed the results to the model.
 
-import { generate, MISSING_KEY_MESSAGE, activeProvider } from "../../../lib/llm";
+import { generate, MISSING_KEY_MESSAGE, activeProvider, providerHasNativeSearch } from "../../../lib/llm";
+import { searchAvailable, webSearch } from "../../../lib/search";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // web search + generation can take a while; Hobby allows up to 60s
 
-export async function POST(req) {
-  if (!activeProvider()) {
-    return Response.json({ error: MISSING_KEY_MESSAGE }, { status: 500 });
-  }
+function buildPrompt({ n, service, geo, niche, size, searchContext }) {
+  const sourceLine = searchContext
+    ? `Using ONLY the web search results below, identify ${n} REAL, currently operating companies that are strong potential clients for the service: "${service}". Do NOT invent companies that don't appear in the results.`
+    : `Use web search to find ${n} REAL, currently operating companies that are strong potential clients for the service: "${service}".`;
 
-  let body;
-  try { body = await req.json(); } catch { return Response.json({ error: "Bad request." }, { status: 400 }); }
-  const { geo, niche, size, service, count } = body || {};
-  const n = Math.min(Math.max(parseInt(count, 10) || 5, 1), 8);
-
-  const prompt =
+  let p =
 `You are a senior B2B prospecting researcher for Swift Labs, a Karachi-based digital studio (web, mobile, AI integration, SAP/enterprise, design, SEO).
-Use web search to find ${n} REAL, currently operating companies that are strong potential clients for the service: "${service}".
+${sourceLine}
 Targeting — geography: ${geo}; industry/niche: ${niche || "any relevant sector"}; company size: ${size}.
 Prefer companies showing a concrete reason to reach out now (recent funding, active hiring for relevant roles, dated or slow website, expansion, a new product, weak SEO) that Swift Labs could genuinely help with.
 If you can find a public contact (a generic company email like hello@/info@, a phone number, or a LinkedIn company URL), include it; otherwise leave it as an empty string. Do NOT invent contact details.
 Return ONLY a valid JSON array — no markdown fences, no commentary before or after. Each element exactly:
 {"company":string,"website":string (bare domain),"location":string,"fit_score":number 0-100,"why_fit":string (one specific sentence about THIS company),"signal":string (the concrete trigger to contact them now),"contact_role":string (the role to target),"email":string,"phone":string,"linkedin":string}`;
 
+  if (searchContext) p += `\n\nWeb search results:\n${searchContext}`;
+  return p;
+}
+
+export async function POST(req) {
+  const provider = activeProvider();
+  if (!provider) return Response.json({ error: MISSING_KEY_MESSAGE }, { status: 500 });
+
+  let body;
+  try { body = await req.json(); } catch { return Response.json({ error: "Bad request." }, { status: 400 }); }
+  const { geo, niche, size, service, count } = body || {};
+  const n = Math.min(Math.max(parseInt(count, 10) || 5, 1), 8);
+
   try {
-    const result = await generate({ prompt, maxTokens: 4000, webSearch: true });
+    // Providers without native search (Groq) need an external search first.
+    let searchContext = null;
+    if (!providerHasNativeSearch(provider)) {
+      if (!searchAvailable()) {
+        return Response.json(
+          { error: "This AI provider can't search the web. Add TAVILY_API_KEY (free, tavily.com) so the finder can pull real companies." },
+          { status: 500 }
+        );
+      }
+      const query = `${niche || service} companies in ${geo} (${size}) — recent funding, hiring, expansion, or new product`;
+      let results;
+      try {
+        results = await webSearch(query, 10);
+      } catch (e) {
+        return Response.json({ error: "Web search failed: " + (e.message || "unknown"), detail: e.detail }, { status: 502 });
+      }
+      if (!results.length) return Response.json({ error: "Web search returned nothing — broaden the niche or geography." }, { status: 502 });
+      searchContext = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`).join("\n\n");
+    }
+
+    const prompt = buildPrompt({ n, service, geo, niche, size, searchContext });
+    const result = await generate({ prompt, maxTokens: 4000, webSearch: providerHasNativeSearch(provider) });
     if (!result.ok) return Response.json({ error: result.error, detail: result.detail }, { status: result.status });
     if (result.stop === "max_tokens") {
       return Response.json({ error: "The model ran out of room before finishing the list — try a lower lead count." }, { status: 502 });
