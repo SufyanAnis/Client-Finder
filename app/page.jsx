@@ -17,10 +17,14 @@ export default function Page() {
                 <span className="tag">Lead Finder</span>
               </div>
             </div>
-            <a className="site" href="https://website-portfolio-kdli.vercel.app/" target="_blank" rel="noreferrer">
-              Main site
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
-            </a>
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <a className="site" href="/request">Request form</a>
+              <a className="site" href="/inbox">Inbox</a>
+              <a className="site" href="https://website-portfolio-kdli.vercel.app/" target="_blank" rel="noreferrer">
+                Main site
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+              </a>
+            </div>
           </div>
         </nav>
 

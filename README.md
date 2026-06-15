@@ -70,6 +70,25 @@ vercel --prod          # promote to production
 
 ---
 
+## 3b. Inbound "Request services" form
+
+Besides finding leads (outbound), the app has a **public form at `/request`** that prospects fill in to reach you (inbound). Share that link. Each submission is delivered two ways — set up whichever you want (both are free, and the form degrades gracefully if one is missing):
+
+- **Email** — set `WEB3FORMS_ACCESS_KEY`. Create a free key at https://web3forms.com using the inbox email you want leads sent to (e.g. `sufyananis7@gmail.com`). Every submission is emailed there.
+- **In-app inbox at `/inbox`** — set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (free Postgres at https://supabase.com → *Project Settings → API*, use the **service_role** key). Submissions save to a `requests` table and show in `/inbox`, exportable to Excel. The inbox is locked behind `ADMIN_TOKEN` (a passphrase you choose).
+
+**Supabase table** — run this once in the Supabase SQL editor:
+
+```sql
+create table requests (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz default now(),
+  name text, company text, email text, phone text, service text, message text
+);
+```
+
+(Server routes use the service_role key, which bypasses Row Level Security — no RLS policies needed. The key lives only on the server.)
+
 ## 4. Storage & how the Excel sheet works
 
 By default, saved leads are stored in **your browser** (localStorage) and the **Export to Excel** button downloads the full sheet on demand. This needs **zero extra services** — it deploys with just the one API key.
@@ -101,6 +120,10 @@ swiftlabs-lead-finder/
 ├── app/
 │   ├── api/find-leads/route.js   # web-search prospecting (server, holds key)
 │   ├── api/draft/route.js        # outreach drafting (server)
+│   ├── api/request/route.js      # inbound form submit -> email + Supabase
+│   ├── api/requests/route.js     # admin inbox list (passphrase-gated)
+│   ├── request/page.jsx          # public "Request services" form
+│   ├── inbox/page.jsx            # your inbound requests inbox + Excel
 │   ├── globals.css               # dark "engineered" theme
 │   ├── layout.jsx
 │   └── page.jsx                  # nav + hero + footer shell
@@ -108,7 +131,9 @@ swiftlabs-lead-finder/
 │   └── LeadApp.jsx               # finder + pipeline + Excel export (client)
 ├── lib/
 │   ├── llm.js                    # provider helper (Groq free / Anthropic paid / Gemini)
-│   └── search.js                 # Tavily web search (feeds Groq real companies)
+│   ├── search.js                 # Tavily web search (feeds Groq real companies)
+│   ├── notify.js                 # Web3Forms email delivery for inbound requests
+│   └── store.js                  # Supabase save/list for inbound requests
 ├── .env.example
 ├── next.config.mjs
 └── package.json
