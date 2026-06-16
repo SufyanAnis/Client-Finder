@@ -9,16 +9,35 @@ import { searchAvailable, webSearch } from "../../../lib/search";
 export const runtime = "nodejs";
 export const maxDuration = 60; // web search + generation can take a while; Hobby allows up to 60s
 
+// Roles a company would be hiring / seeking when it actually needs each service.
+// Used to bias the search toward ACTIVE demand ("who needs developers now").
+const ROLE_KEYWORDS = {
+  "Web build (Next.js / React)": "React, Next.js or frontend developers",
+  "Mobile app": "mobile, iOS or Android developers",
+  "AI integration & agents": "AI / ML engineers",
+  "Enterprise (SAP / Apigee / Jira)": "SAP, Apigee or Jira / integration consultants",
+  "SEO & growth marketing": "an SEO or growth marketer / agency",
+  "Design system / UI-UX": "UI/UX or product designers",
+  "Game UI/UX": "game UI/UX designers",
+};
+
+// A query aimed at hiring/seeking intent, not just "good-fit companies".
+function demandQuery({ service, geo, niche, size }) {
+  const role = ROLE_KEYWORDS[service] || `${service} talent`;
+  const sector = niche ? `${niche} ` : "";
+  return `${sector}companies in ${geo} hiring ${role} or looking for ${service} help right now (${size}) — job posts, "we're hiring", or "seeking agency/freelancer"`;
+}
+
 function buildPrompt({ n, service, geo, niche, size, searchContext }) {
   const sourceLine = searchContext
-    ? `Using ONLY the web search results below, identify ${n} REAL, currently operating companies that are strong potential clients for the service: "${service}". Do NOT invent companies that don't appear in the results.`
-    : `Use web search to find ${n} REAL, currently operating companies that are strong potential clients for the service: "${service}".`;
+    ? `Using ONLY the web search results below, identify ${n} REAL companies that show an ACTIVE NEED for "${service}" right now. Do NOT invent companies that don't appear in the results.`
+    : `Use web search to find ${n} REAL companies that show an ACTIVE NEED for "${service}" right now.`;
 
   let p =
 `You are a senior B2B prospecting researcher for Swift Labs, a Karachi-based digital studio (web, mobile, AI integration, SAP/enterprise, design, SEO).
 ${sourceLine}
 Targeting — geography: ${geo}; industry/niche: ${niche || "any relevant sector"}; company size: ${size}.
-Prefer companies showing a concrete reason to reach out now (recent funding, active hiring for relevant roles, dated or slow website, expansion, a new product, weak SEO) that Swift Labs could genuinely help with.
+Strongly prioritize companies with a CONCRETE, CURRENT demand signal for this service — e.g. they are hiring for the relevant role (a job post / "we're hiring"), publicly looking for an agency or freelancer, just raised funding to build, launching a new product, or have an obvious gap this service fixes (dated/slow site, weak SEO). Rank by how clearly they need it now. Skip companies with no demand signal in favour of ones that have it. The "signal" field MUST state that specific, current need (e.g. "Hiring 2 React developers — Nov 2026", "Job post: seeking SEO agency").
 If you can find a public contact (a generic company email like hello@/info@, a phone number, or a LinkedIn company URL), include it; otherwise leave it as an empty string. Do NOT invent contact details.
 Return ONLY a valid JSON array — no markdown fences, no commentary before or after. Each element exactly:
 {"company":string,"website":string (bare domain),"location":string,"fit_score":number 0-100,"why_fit":string (one specific sentence about THIS company),"signal":string (the concrete trigger to contact them now),"contact_role":string (the role to target),"email":string,"phone":string,"linkedin":string}`;
@@ -46,7 +65,7 @@ export async function POST(req) {
           { status: 500 }
         );
       }
-      const query = `${niche || service} companies in ${geo} (${size}) — recent funding, hiring, expansion, or new product`;
+      const query = demandQuery({ service, geo, niche, size });
       let results;
       try {
         results = await webSearch(query, 10);
