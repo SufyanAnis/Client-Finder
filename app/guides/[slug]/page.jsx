@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Page } from "../../../components/SiteChrome";
-import { Blocks, Breadcrumbs, Faqs, JsonLd, ToolCta, Rich, slugify } from "../../../components/Content";
+import { Blocks, Breadcrumbs, Faqs, JsonLd, ToolCta, Rich, slugify, Byline } from "../../../components/Content";
+import { DEFAULT_AUTHOR } from "../../../lib/authors";
+import { articleLd, wordCount } from "../../../lib/schema";
 import { RelatedLinks } from "../../../components/Related";
 import AdSlot from "../../../components/AdSlot";
 import { guides, getGuide, resolveRelated } from "../../../content";
-import { SITE, ADS, absUrl } from "../../../lib/site";
+import { ADS } from "../../../lib/site";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -38,9 +40,7 @@ export default function GuidePage({ params }) {
           <div className="kicker">{g.category}</div>
           <h1>{g.title}</h1>
           <p className="lede">{g.excerpt}</p>
-          <div className="art-meta">
-            Updated <time dateTime={g.updated}>{fmtDate(g.updated)}</time> · {g.readingMinutes} min read
-          </div>
+          <Byline author={DEFAULT_AUTHOR} updated={g.updated} minutes={g.readingMinutes} />
         </header>
 
         {g.keyTakeaways?.length > 0 && (
@@ -72,24 +72,8 @@ export default function GuidePage({ params }) {
       <RelatedLinks rel={rel} />
       <AdSlot slot={ADS.slots.multiplex} format="autorelaxed" />
 
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "Article",
-          headline: g.title,
-          description: g.description,
-          dateModified: g.updated,
-          datePublished: g.updated,
-          mainEntityOfPage: absUrl(url),
-          image: absUrl("/opengraph-image"),
-          author: { "@type": "Organization", name: SITE.name, url: SITE.url },
-          publisher: { "@type": "Organization", name: SITE.name, url: SITE.url },
-        }}
-      />
+      <JsonLd data={articleLd({ title: g.title, description: g.description, path: url, updated: g.updated, author: DEFAULT_AUTHOR, section: g.category, words: wordCount(g.sections) })} />
     </Page>
   );
 }
 
-function fmtDate(d) {
-  return new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
-}

@@ -4,7 +4,7 @@ import { Page } from "../components/SiteChrome";
 import { Faqs, JsonLd } from "../components/Content";
 import { CardGrid } from "../components/Related";
 import AdSlot from "../components/AdSlot";
-import { guides, professions, templates } from "../content";
+import { guides, professions, templates, blog } from "../content";
 import { SITE, ADS } from "../lib/site";
 
 export const metadata = {
@@ -41,6 +41,7 @@ const FAQ = [
 
 export default function Home() {
   const featuredGuides = guides.slice(0, 6);
+  const latestPosts = blog.slice(0, 6);
   return (
     <Page>
       <header className="hero">
@@ -73,6 +74,28 @@ export default function Home() {
         </div>
         <div className="pills">
           {professions.map((p) => <Link key={p.slug} href={`/find-clients/${p.slug}`} className="tagpill">{p.name}</Link>)}
+        </div>
+      </section>
+
+      {latestPosts.length > 0 && (
+        <section className="home-sec">
+          <div className="sec-head">
+            <h2>From the blog</h2>
+            <Link href="/blog" className="more">All posts →</Link>
+          </div>
+          <CardGrid items={latestPosts} href={(p) => `/blog/${p.slug}`} kicker={(p) => p.category} title={(p) => p.title} text={(p) => p.excerpt} />
+        </section>
+      )}
+
+      <section className="home-sec">
+        <div className="sec-head">
+          <h2>Free tools</h2>
+          <Link href="/tools" className="more">All tools →</Link>
+        </div>
+        <div className="cards">
+          <Link href="/tools/freelance-rate-calculator" className="ccard"><div className="kicker">Free tool</div><div className="ccard-t">Freelance rate calculator</div><p>Your minimum hourly and day rate after expenses, tax and non-billable time.</p></Link>
+          <Link href="/tools/cold-email-checker" className="ccard"><div className="kicker">Free tool</div><div className="ccard-t">Cold email checker</div><p>Score an email on length, spam triggers, clichés, links and the ask.</p></Link>
+          <Link href="/glossary" className="ccard"><div className="kicker">Reference</div><div className="ccard-t">Outreach glossary</div><p>Buying signals, ICPs, DMARC, PECR and more — explained in plain English.</p></Link>
         </div>
       </section>
 

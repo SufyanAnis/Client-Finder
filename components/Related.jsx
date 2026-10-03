@@ -1,11 +1,13 @@
 import Link from "next/link";
 
-// "Keep reading" block: related guides, templates and profession pages.
+// "Keep reading" block: related posts, guides, templates, profession pages and terms.
 export function RelatedLinks({ rel }) {
   const groups = [
-    { title: "Guides", items: rel.guides, href: (x) => `/guides/${x.slug}`, label: (x) => x.title },
-    { title: "Templates", items: rel.templates, href: (x) => `/templates/${x.slug}`, label: (x) => x.title },
-    { title: "By profession", items: rel.professions, href: (x) => `/find-clients/${x.slug}`, label: (x) => `Find clients for ${x.name.toLowerCase()}` },
+    { title: "Blog", items: rel.blog || [], href: (x) => `/blog/${x.slug}`, label: (x) => x.title },
+    { title: "Guides", items: rel.guides || [], href: (x) => `/guides/${x.slug}`, label: (x) => x.title },
+    { title: "Templates", items: rel.templates || [], href: (x) => `/templates/${x.slug}`, label: (x) => x.title },
+    { title: "By profession", items: rel.professions || [], href: (x) => `/find-clients/${x.slug}`, label: (x) => `Find clients for ${x.name.toLowerCase()}` },
+    { title: "Glossary", items: rel.glossary || [], href: (x) => `/glossary/${x.slug}`, label: (x) => x.term },
   ].filter((g) => g.items.length);
   if (!groups.length) return null;
   return (

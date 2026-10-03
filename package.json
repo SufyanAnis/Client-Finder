@@ -1,12 +1,16 @@
 {
-  "name": "swiftlabs-lead-finder",
+  "name": "findmyclients",
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "content": "node scripts/gen-content-index.mjs",
+    "predev": "node scripts/gen-content-index.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/gen-content-index.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "lucide-react": "0.408.0",

@@ -3,10 +3,11 @@ import Link from "next/link";
 import { SITE } from "../lib/site";
 
 const NAV = [
+  { href: "/blog", label: "Blog" },
   { href: "/guides", label: "Guides" },
   { href: "/templates", label: "Templates" },
   { href: "/find-clients", label: "By profession" },
-  { href: "/about", label: "About" },
+  { href: "/tools", label: "Tools" },
 ];
 
 export function Logo() {
@@ -65,13 +66,18 @@ export function SiteFooter() {
           <Link href="/#finder">Lead finder</Link>
           <Link href="/find-clients">Find clients by profession</Link>
           <Link href="/templates">Outreach templates</Link>
+          <Link href="/tools/freelance-rate-calculator">Rate calculator</Link>
+          <Link href="/tools/cold-email-checker">Cold email checker</Link>
         </div>
         <div>
           <div className="foot-h">Learn</div>
-          <Link href="/guides">All guides</Link>
+          <Link href="/blog">Blog</Link>
+          <Link href="/guides">Guides</Link>
+          <Link href="/glossary">Glossary</Link>
           <Link href="/guides/how-to-find-clients-as-a-freelancer">Finding clients</Link>
           <Link href="/guides/cold-email-that-gets-replies">Cold email</Link>
           <Link href="/guides/cold-outreach-laws">Outreach laws</Link>
+          <a href="/feed.xml">RSS feed</a>
         </div>
         <div>
           <div className="foot-h">Company</div>
@@ -79,6 +85,7 @@ export function SiteFooter() {
           <Link href="/contact">Contact</Link>
           <Link href="/privacy">Privacy policy</Link>
           <Link href="/terms">Terms of use</Link>
+          <Link href="/authors/sufyan-anis">Author</Link>
         </div>
       </div>
       <div className="wrap foot-base">

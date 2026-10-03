@@ -28,6 +28,7 @@ export function Blocks({ blocks = [] }) {
       case "ol": return <ol key={i}>{b.items.map((t, j) => <li key={j}><Rich text={t} /></li>)}</ol>;
       case "tip": return <div key={i} className="tip"><span className="tip-k">Tip</span><p><Rich text={b.text} /></p></div>;
       case "example": return <Example key={i} label={b.label} text={b.text} />;
+      case "table": return <Table key={i} caption={b.caption} head={b.head} rows={b.rows} />;
       default: return <p key={i}><Rich text={b.text} /></p>;
     }
   });
@@ -45,7 +46,50 @@ export function Example({ label, text }) {
   );
 }
 
-export const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function Table({ caption, head = [], rows = [] }) {
+  return (
+    <div className="ptable">
+      <table>
+        {caption && <caption>{caption}</caption>}
+        <thead><tr>{head.map((h, i) => <th key={i} scope="col"><Rich text={h} /></th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}><Rich text={c} /></td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+// The answer-first block: a standalone direct answer that search snippets and
+// answer engines can lift verbatim.
+export function AnswerBox({ answer, label = "Short answer" }) {
+  if (!answer) return null;
+  return (
+    <div className="answer" id="short-answer">
+      <div className="label">{label}</div>
+      <p><Rich text={answer} /></p>
+    </div>
+  );
+}
+
+export function Byline({ author, updated, published, minutes }) {
+  return (
+    <div className="byline">
+      <Link href={`/authors/${author.slug}`} className="by-name">{author.name}</Link>
+      <span className="by-role">{author.role}</span>
+      <span className="by-meta">
+        {published && published !== updated ? <>Published {fmtDate(published)} · </> : null}
+        Updated <time dateTime={updated}>{fmtDate(updated)}</time>{minutes ? ` · ${minutes} min read` : ""}
+      </span>
+    </div>
+  );
+}
+
+export function fmtDate(d) {
+  return new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+export const plainText = (t) => String(t || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+export const slugify =(s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export function JsonLd({ data }) {
   return (
