@@ -1,162 +1,85 @@
-# Swift Labs — Lead Finder
+# FindMyClients
 
-A deployable Next.js app that finds real prospective clients with live web research,
-scores fit, drafts personalized outreach, saves everything to a pipeline, and exports
-to Excel. Built to match the Swift Labs aesthetic (dark, engineered).
+A free AI lead finder for freelancers and small agencies, plus a library of guides, profession pages and
+outreach templates that carry the SEO and the ads. Next.js 14 (App Router), deployed on Vercel.
 
----
+- **Lead finder** (`/`) — describe what you sell and where; the server searches the live web for demand
+  signals (companies' own job posts, recent funding/launch news, new openings), an LLM picks out the real
+  companies, scores fit and writes the "why now". Drafts outreach (Email / LinkedIn / WhatsApp) in the
+  user's voice, on-demand public contact lookup, pipeline in localStorage, Excel export.
+- **Content** — 12 guides (`/guides`), 12 profession pages (`/find-clients`), 15 templates (`/templates`).
+  Lives in `content/` as plain JS objects; format and quality rules in `content/CONTENT_SPEC.md`.
+- **Trust pages** — `/about`, `/contact`, `/privacy`, `/terms`.
+- **SEO** — per-page metadata + canonicals, `sitemap.xml`, `robots.txt`, JSON-LD (WebApplication, Article,
+  FAQPage, BreadcrumbList), generated OG image, static generation for every content page.
+- **Ads** — AdSense script, verification meta tag, `/ads.txt` and manual ad slots, all switched on by env vars.
 
-## What it does
+## Free-tier economics
 
-- **Find leads** — set geography, niche, company size, the service to lead with, and a channel. The server runs a live web-search prospecting call (via Claude) and returns real companies with a fit score, a "why now" signal, the role to target, and any public contact it can find.
-- **Draft outreach** — one click writes a personalized Email / LinkedIn / WhatsApp message that references the specific signal.
-- **Pipeline** — save leads to a table. Email / phone / LinkedIn / needs cells are **editable** so you can fill in whatever the research missed.
-- **Export to Excel** — download the whole pipeline as an `.xlsx` any time, with every field (company, website, location, role, email, phone, LinkedIn, needs, fit, signal, channel, message, date).
+Every public search costs real API credits, so the site meters use:
 
----
+| | Default | Env var |
+|---|---|---|
+| Searches per visitor per day | 3 | `FREE_SEARCHES_PER_DAY` |
+| Drafts per visitor per day | 10 | `FREE_DRAFTS_PER_DAY` |
+| Contact lookups per visitor per day | 5 | `FREE_LOOKUPS_PER_DAY` |
+| Tavily credits per day, whole site | 30 | `GLOBAL_WEB_SEARCHES_PER_DAY` |
 
-## 1. Prerequisites
+A search uses 2 Tavily credits (3 when the fallback runs); a lookup uses 1. Tavily's free plan is ~1,000
+credits/month, so 30/day is roughly the free ceiling — about 10–15 public searches a day. Identical searches
+are cached for 12 hours and cost nothing. Visitors are identified by a salted hash of their IP.
+Raise the caps once you pay for Tavily or ads cover it.
 
-- **Node.js 18+**
-- **AI keys** — the server auto-detects the provider from whichever key is set:
-  - **Free (recommended):** **Groq** (LLM) + **Tavily** (web search). Get a free Groq key at https://console.groq.com and a free Tavily key at https://tavily.com. Set `GROQ_API_KEY` and `TAVILY_API_KEY`. Groq has no built-in web search, so Tavily supplies the live results the model turns into real leads. Both free tiers work worldwide (including Pakistan).
-  - **Paid:** **Anthropic** from https://console.anthropic.com → *Settings → API Keys*. Set `ANTHROPIC_API_KEY` — it searches the web natively, so no Tavily needed.
-  - **Gemini:** a free key from https://aistudio.google.com works as `GEMINI_API_KEY`, **but Google's free tier is region-locked and unavailable in some countries (incl. Pakistan)**, where it returns `limit: 0`.
+**Use Upstash Redis in production** (free; add it from Vercel → Storage / Marketplace → Upstash). Without it
+the counters and cache live in each serverless instance's memory, so limits are only approximate.
 
-  Precedence if several are set: Anthropic → Gemini → Groq. Keep lead counts modest while testing.
+The signed-in owner (`/login`) is unlimited, gets 8 leads per search and automatic contact enrichment, and can
+read contact-form messages at `/inbox`.
 
----
-
-## 2. Run locally
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env.local      # then paste your real key into .env.local
-npm run dev                     # open http://localhost:3000
+cp .env.example .env.local   # add GROQ_API_KEY + TAVILY_API_KEY at minimum
+npm run dev                  # http://localhost:3000
 ```
 
-`.env.local`:
-```
-# Free path — Groq (LLM) + Tavily (web search):
-GROQ_API_KEY=your-groq-key
-TAVILY_API_KEY=your-tavily-key
-# Paid alternative (no Tavily needed):
-# ANTHROPIC_API_KEY=sk-ant-your-real-key
-# optional: GROQ_MODEL=llama-3.3-70b-versatile  /  ANTHROPIC_MODEL=claude-sonnet-4-6
-```
+Note: keys stored on Vercel as "Sensitive" can't be pulled with `vercel env pull` — paste them into
+`.env.local` yourself.
 
----
+## Deploy
 
-## 3. Deploy to Vercel
+The Vercel project `swiftlabs-lead-finder` holds the API keys. `vercel` deploys a preview,
+`vercel --prod` deploys production. After the first production deploy, add `findmyclients.vercel.app`
+under Project → Settings → Domains (or your own domain later) and set `NEXT_PUBLIC_SITE_URL` to match.
 
-**Option A — GitHub (recommended)**
-1. Push this folder to a new GitHub repo.
-2. Go to https://vercel.com → **Add New → Project** → import the repo.
-3. Before deploying, open **Environment Variables** and add either:
-   - `GROQ_API_KEY` **and** `TAVILY_API_KEY` (free path), **or**
-   - `ANTHROPIC_API_KEY` (paid; no Tavily needed)
-   - (optional) `GROQ_MODEL` / `ANTHROPIC_MODEL`
-4. Click **Deploy**. Done — you get a `*.vercel.app` URL. Add a custom domain in Project → Settings → Domains if you want.
+## Launch checklist (AdSense + SEO)
 
-**Option B — Vercel CLI**
-```bash
-npm i -g vercel
-vercel                 # first deploy (preview)
-vercel env add ANTHROPIC_API_KEY    # paste key, choose Production + Preview
-vercel --prod          # promote to production
-```
+1. **Domain.** AdSense won't approve a `*.vercel.app` address — buy a domain, add it in Vercel, set
+   `NEXT_PUBLIC_SITE_URL`, redeploy.
+2. **Search Console.** Add the domain property, verify (DNS, or `NEXT_PUBLIC_GSC_VERIFICATION`), submit
+   `/sitemap.xml`.
+3. **Contact form.** Set `WEB3FORMS_ACCESS_KEY` (AdSense reviewers check that contact works).
+4. **AdSense.** Apply with the domain, set `NEXT_PUBLIC_ADSENSE_CLIENT`, redeploy (this also publishes
+   `/ads.txt`). In AdSense → Privacy & messaging, publish the GDPR consent message for EEA/UK/CH visitors.
+   After approval, turn on Auto ads or create units and set the `NEXT_PUBLIC_AD_SLOT_*` ids.
+5. **Protect the budget.** Upstash Redis + Cloudflare Turnstile keys (both free).
 
-> The API key lives only on the server (in the `/api` routes). It is never shipped to the browser. Never commit `.env.local`.
-
----
-
-## 3b. Inbound "Request services" form
-
-Besides finding leads (outbound), the app has a **public form at `/request`** that prospects fill in to reach you (inbound). Share that link. Each submission is delivered two ways — set up whichever you want (both are free, and the form degrades gracefully if one is missing):
-
-- **Email** — set `WEB3FORMS_ACCESS_KEY`. Create a free key at https://web3forms.com using the inbox email you want leads sent to (e.g. `sufyananis7@gmail.com`). Every submission is emailed there.
-- **In-app inbox at `/inbox`** — set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (free Postgres at https://supabase.com → *Project Settings → API*, use the **service_role** key). Submissions save to a `requests` table and show in `/inbox`, exportable to Excel. The inbox is locked behind `ADMIN_TOKEN` (a passphrase you choose).
-
-**Supabase table** — run this once in the Supabase SQL editor:
-
-```sql
-create table requests (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz default now(),
-  name text, company text, email text, phone text, service text, message text
-);
-```
-
-(Server routes use the service_role key, which bypasses Row Level Security — no RLS policies needed. The key lives only on the server.)
-
-## 3c. Owner login (authentication)
-
-The whole app is locked behind a sign-in page at `/login` — every run of the finder spends
-your Groq/Tavily credits, so only you should reach it. The **public exceptions** are the
-`/request` form (+ its submit API), so prospects can still contact you.
-
-Set three env vars (locally in `.env.local`, and on Vercel for production):
+## Structure
 
 ```
-AUTH_EMAIL=you@example.com        # the email you sign in with
-AUTH_PASSWORD=a-long-password     # the password you sign in with
-AUTH_SECRET=a-long-random-string  # signs the session cookie (optional; falls back to AUTH_PASSWORD)
+app/
+  page.jsx                 home: finder + how it works + links + FAQ
+  guides/ find-clients/ templates/   index + [slug] pages rendered from content/
+  about/ contact/ privacy/ terms/
+  api/find-leads           metered search (lib/search, lib/llm, lib/ratelimit)
+  api/draft                metered outreach drafting
+  api/lookup-contact       metered public-contact lookup (lib/enrich)
+  api/contact              contact form -> Web3Forms email / Supabase
+  api/requests, inbox/     owner-only contact inbox
+  sitemap.js robots.js opengraph-image.jsx ads.txt/ manifest.js
+components/                LeadApp (finder), SiteChrome, Content renderers, AdSlot
+content/                   guides/, professions/, templates/, index.js, CONTENT_SPEC.md
+lib/                       site (brand/ads config), services, ratelimit, guard, llm, search, enrich, auth
+middleware.js              protects /inbox and /api/requests only
 ```
-
-How it works: `POST /api/auth/login` checks the credentials server-side (constant-time
-compare) and sets a signed, HttpOnly, 7-day session cookie; `middleware.js` verifies the
-HMAC-SHA256 signature on every page and API request and redirects (pages) or 401s (APIs)
-without it. "Sign out" in the nav clears the cookie. Leaving `AUTH_PASSWORD` empty turns
-the lock off entirely — handy for quick local hacking; never do it in production.
-
-## 4. Storage & how the Excel sheet works
-
-By default, saved leads are stored in **your browser** (localStorage) and the **Export to Excel** button downloads the full sheet on demand. This needs **zero extra services** — it deploys with just the one API key.
-
-Trade-off: localStorage is per-browser/device, so the pipeline isn't shared across machines or teammates. For shared, always-on storage where leads append to a real spreadsheet automatically, upgrade to one of:
-
-- **Google Sheets backend** — every saved lead appends a row to a Google Sheet you own; open/download it as Excel any time. (Best literal match for "save to a sheet.")
-- **Database** — Vercel Postgres / Supabase / Turso, with the Excel export reading from it.
-
-Both are straightforward add-ons to this codebase — ask and they can be wired in.
-
----
-
-## 5. Notes
-
-- **Function timeout** — web search + generation can take 20–40s. Vercel Hobby allows up to 60s (`maxDuration = 60` is set). If you hit timeouts, lower the lead count or upgrade the plan.
-- **Provider & model** — Groq defaults to `llama-3.3-70b-versatile` (override with `GROQ_MODEL`); Anthropic defaults to `claude-sonnet-4-6` (override with `ANTHROPIC_MODEL`); Gemini defaults to `gemini-2.0-flash` (`GEMINI_MODEL`). Verify current model names at https://console.groq.com/docs/models or https://docs.claude.com.
-- **Contact enrichment** — after finding companies, the finder runs an extra web search per company for public email/phone/LinkedIn and fills in whatever it can (strictly from real pages — never invented). Blanks are normal; the pipeline cells stay editable.
-- **Free-tier limits** — Groq and Tavily free tiers are rate-limited (fine for normal use; don't hammer them). Each "Find leads" run uses Tavily searches = 1 (find) + up to N (one per company for contacts), so a 5-lead run is ~6 searches. Tavily's free plan covers ~1,000 searches/month.
-- **Contact data** — emails/phones/LinkedIn from web search are best-effort and often blank. The pipeline cells are editable for exactly this reason; for verified contacts at scale, use a dedicated data provider.
-- **Sending** — this tool finds and drafts only. You review and send. Keep volume sane and personal to stay off spam filters and within anti-spam law (CAN-SPAM / GDPR / PECR).
-
----
-
-## Project structure
-
-```
-swiftlabs-lead-finder/
-├── app/
-│   ├── api/find-leads/route.js   # web-search prospecting (server, holds key)
-│   ├── api/draft/route.js        # outreach drafting (server)
-│   ├── api/request/route.js      # inbound form submit -> email + Supabase
-│   ├── api/requests/route.js     # admin inbox list (passphrase-gated)
-│   ├── request/page.jsx          # public "Request services" form
-│   ├── inbox/page.jsx            # your inbound requests inbox + Excel
-│   ├── globals.css               # dark "engineered" theme
-│   ├── layout.jsx
-│   └── page.jsx                  # nav + hero + footer shell
-├── components/
-│   └── LeadApp.jsx               # finder + pipeline + Excel export (client)
-├── lib/
-│   ├── llm.js                    # provider helper (Groq free / Anthropic paid / Gemini)
-│   ├── search.js                 # Tavily web search (feeds Groq real companies)
-│   ├── notify.js                 # Web3Forms email delivery for inbound requests
-│   └── store.js                  # Supabase save/list for inbound requests
-├── .env.example
-├── next.config.mjs
-└── package.json
-```
-
-© Swift Labs · Karachi.

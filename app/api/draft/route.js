@@ -62,7 +62,7 @@ export async function POST(req) {
 What we know about them: ${why_fit || "—"} Trigger to reach out: ${signal || "—"}. Target contact: ${contact_role || "the decision maker"}.
 ${sender} ${offer}
 ${fmt}
-Reference the specific trigger naturally so it reads researched, not mass-sent. Do not invent facts about the sender (no made-up clients, results, prices or years of experience) beyond what is stated above. One soft call to action (a short reply or a quick call). Warm and human, zero buzzwords, no "I hope this finds you well", no exclamation hype. ${signOff} Output only the message.`;
+Reference the specific trigger naturally so it reads researched, not mass-sent. Do not invent facts about the sender (no made-up clients, results, prices or years of experience) beyond what is stated above. Address the recipient as {first name} (a placeholder the sender fills in). One soft call to action (a short reply or a quick call). Warm and human, zero buzzwords, no "I hope this finds you well", no exclamation hype. ${signOff} Output only the message.`;
 
   try {
     const result = await generate({ prompt, maxTokens: 600, webSearch: false, fast: !owner });
