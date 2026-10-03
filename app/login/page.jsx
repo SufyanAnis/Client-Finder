@@ -37,13 +37,11 @@ export default function LoginPage() {
             <div className="brand">
               <div className="logo"><Lock size={16} /></div>
               <div>
-                <b style={{ display: "block", lineHeight: 1 }}>Swift Labs</b>
-                <span className="tag">Lead Finder</span>
+                <b style={{ display: "block", lineHeight: 1 }}>FindMyClients</b>
+                <span className="tag">Owner sign-in</span>
               </div>
             </div>
-            <a className="site" href="/request">Request services
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
-            </a>
+            <a className="site" href="/">Back to the site</a>
           </div>
         </nav>
 
@@ -51,13 +49,13 @@ export default function LoginPage() {
           <header className="hero" style={{ padding: "58px 0 8px" }}>
             <div className="pill"><span className="dot" /> Private workspace</div>
             <h1 style={{ fontSize: "clamp(30px,5.4vw,48px)" }}>Sign <em>in.</em></h1>
-            <p>This lead finder runs on Swift Labs&apos; own research credits, so it&apos;s owner-only. Looking to hire us instead? Use the <a href="/request" style={{ color: "var(--gold-dim)" }}>request form</a>.</p>
+            <p>For the site owner: unlimited searches and the contact inbox. Everyone else can use the <a href="/" style={{ color: "var(--gold-dim)" }}>free lead finder</a> without signing in.</p>
           </header>
 
           <form className="panel" onSubmit={submit} style={{ maxWidth: 460 }}>
             <div className="field">
               <div className="label"><Mail size={13} /> Email</div>
-              <input className="inp" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@swiftlabs.dev" autoFocus />
+              <input className="inp" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoFocus />
             </div>
             <div className="field">
               <div className="label"><KeyRound size={13} /> Password</div>
@@ -69,7 +67,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <footer className="foot">&copy; {new Date().getFullYear()} Swift Labs · Karachi.</footer>
+          <footer className="foot">&copy; {new Date().getFullYear()} FindMyClients.</footer>
         </div>
       </div>
     </>

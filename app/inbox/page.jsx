@@ -38,13 +38,13 @@ export default function InboxPage() {
     const data = rows.map((r) => ({
       Date: (r.created_at || "").slice(0, 16).replace("T", " "),
       Name: r.name, Company: r.company, Email: r.email, Phone: r.phone,
-      "Service wanted": r.service, Message: r.message,
+      Topic: r.service, Message: r.message,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     ws["!cols"] = [{ wch: 17 }, { wch: 20 }, { wch: 20 }, { wch: 26 }, { wch: 18 }, { wch: 26 }, { wch: 55 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Requests");
-    XLSX.writeFile(wb, `swiftlabs-requests-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `findmyclients-contact-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   return (
@@ -56,8 +56,8 @@ export default function InboxPage() {
             <div className="brand">
               <div className="logo"><Inbox size={17} /></div>
               <div>
-                <b style={{ display: "block", lineHeight: 1 }}>Swift Labs</b>
-                <span className="tag">Inbound requests</span>
+                <b style={{ display: "block", lineHeight: 1 }}>FindMyClients</b>
+                <span className="tag">Contact inbox</span>
               </div>
             </div>
             <a className="site" href="/">Lead finder
@@ -68,8 +68,8 @@ export default function InboxPage() {
 
         <div className="wrap">
           <header className="hero" style={{ padding: "48px 0 18px" }}>
-            <h1 style={{ fontSize: "clamp(28px,5vw,44px)" }}>Client <em>requests.</em></h1>
-            <p>People who asked to work with Swift Labs via the request form. Export to Excel any time.</p>
+            <h1 style={{ fontSize: "clamp(28px,5vw,44px)" }}>Contact <em>inbox.</em></h1>
+            <p>Messages sent through the public contact form. Export to Excel any time.</p>
           </header>
 
           {!unlocked ? (
@@ -99,7 +99,7 @@ export default function InboxPage() {
 
               <div className="pipe">
                 {rows.length === 0 ? (
-                  <div className="pipe-empty">No requests yet. Share your <a href="/request" style={{ color: "var(--gold-dim)" }}>request form</a> link and submissions will land here.</div>
+                  <div className="pipe-empty">No messages yet. Submissions from the <a href="/contact" style={{ color: "var(--gold-dim)" }}>contact form</a> land here.</div>
                 ) : (
                   <div className="tablewrap">
                     <table>
@@ -126,7 +126,7 @@ export default function InboxPage() {
             </>
           )}
 
-          <footer className="foot">&copy; {new Date().getFullYear()} Swift Labs · Karachi.</footer>
+          <footer className="foot">&copy; {new Date().getFullYear()} FindMyClients.</footer>
         </div>
       </div>
     </>

@@ -1,55 +1,119 @@
+import Link from "next/link";
 import LeadApp from "../components/LeadApp";
+import { Page } from "../components/SiteChrome";
+import { Faqs, JsonLd } from "../components/Content";
+import { CardGrid } from "../components/Related";
+import AdSlot from "../components/AdSlot";
+import { guides, professions, templates } from "../content";
+import { SITE, ADS } from "../lib/site";
 
-export default function Page() {
+export const metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
+};
+
+const FAQ = [
+  {
+    q: "Is FindMyClients really free?",
+    a: "Yes. Anyone can run a few searches a day with no signup, plus a handful of message drafts and contact lookups. The limits exist because every search runs live web research, which costs money; they reset at midnight UTC. The site is supported by ads on the guide and template pages.",
+  },
+  {
+    q: "Where do the leads come from?",
+    a: "Each search runs a live web search aimed at demand signals — job posts for the role you cover, companies asking for an agency or freelancer, launches and funding news — and an AI model picks out the real companies behind those results. Job boards and marketplaces are excluded, so you get the actual company, not the listing.",
+  },
+  {
+    q: "Are the contact details accurate?",
+    a: "They're public company details only — a generic email like hello@, a main phone number or a company LinkedIn page — and only when they appear on the web. Often there isn't one, and the cells stay editable so you can add what you find. Always check a lead before contacting it; AI research can be wrong or out of date.",
+  },
+  {
+    q: "Does it send emails for me?",
+    a: "No. FindMyClients finds companies and drafts a first message; you review, edit and send it yourself from your own email, LinkedIn or WhatsApp. That keeps outreach personal and keeps you in control of volume, which matters for deliverability and for outreach law. See the [guide to cold outreach laws](/guides/cold-outreach-laws).",
+  },
+  {
+    q: "Where is my pipeline stored?",
+    a: "In your own browser (localStorage). Nothing you save is uploaded to our servers, so it won't follow you to another device — use Export to Excel to keep a permanent copy. The targeting you search with is sent to our AI and search providers to run the search.",
+  },
+  {
+    q: "Who is it for?",
+    a: "Freelancers and small agencies selling a service to businesses: developers, designers, SEO and marketing people, writers, video editors, bookkeepers, automation consultants and similar. If you sell to companies and want a short list of ones that need you right now, it's for you. Start with [find clients by profession](/find-clients).",
+  },
+];
+
+export default function Home() {
+  const featuredGuides = guides.slice(0, 6);
   return (
-    <>
-      <div className="bg" />
-      <div className="shell">
-        <nav className="nav">
-          <div className="nav-in">
-            <div className="brand">
-              <div className="logo">
-                {/* radar glyph */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
-              </div>
-              <div>
-                <b style={{ display: "block", lineHeight: 1 }}>Swift Labs</b>
-                <span className="tag">Lead Finder</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              <a className="site" href="/request">Request form</a>
-              <a className="site" href="/inbox">Inbox</a>
-              <a className="site" href="https://website-portfolio-kdli.vercel.app/" target="_blank" rel="noreferrer">
-                Main site
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
-              </a>
-              <form action="/api/auth/logout" method="post" style={{ display: "contents" }}>
-                <button className="site" type="submit">Sign out</button>
-              </form>
-            </div>
-          </div>
-        </nav>
+    <Page>
+      <header className="hero">
+        <div className="pill"><span className="dot" /> Free · no signup · live web research</div>
+        <h1>Find clients who need you <em>right now.</em></h1>
+        <p>
+          Tell it what you sell and who you want to work with. {SITE.name} searches the live web for real companies
+          showing a current need — hiring for your skill, launching, growing, or visibly struggling with what you fix —
+          scores each one, and drafts a first message you can send in minutes.
+        </p>
+      </header>
 
-        <div className="wrap">
-          <header className="hero">
-            <div className="pill"><span className="dot" /> Live web research · powered by Claude</div>
-            <h1>Find your next <em>client.</em></h1>
-            <p>
-              Describe who you want to work with. The agent searches the live web for real companies that fit,
-              scores each against your ideal profile, drafts a first message, and saves everything to a pipeline
-              you can export to Excel any time.
-            </p>
-          </header>
+      <LeadApp />
 
-          <LeadApp />
-
-          <footer className="foot">
-            Finds, drafts &amp; organizes — you review and send. No auto-sending, no scraping behind logins.<br />
-            Leads are stored in your browser; export to Excel to keep a permanent copy. &copy; {new Date().getFullYear()} Swift Labs · Karachi.
-          </footer>
+      <section className="home-sec">
+        <h2>How it works</h2>
+        <div className="steps">
+          <div className="step"><span className="step-n">1</span><div className="step-t">Describe your service</div><p>Pick a preset or type your own service, where your clients are and, optionally, a niche and company size.</p></div>
+          <div className="step"><span className="step-n">2</span><div className="step-t">Get companies with a reason to buy</div><p>Each lead comes with a fit score, a one-line reason it fits, and the "why now" signal — with a link to the source.</p></div>
+          <div className="step"><span className="step-n">3</span><div className="step-t">Draft, save, export</div><p>Draft an email, LinkedIn or WhatsApp message that references the signal, save leads to your pipeline and export to Excel.</p></div>
         </div>
-      </div>
-    </>
+      </section>
+
+      <AdSlot slot={ADS.slots.display} />
+
+      <section className="home-sec">
+        <div className="sec-head">
+          <h2>Find clients by profession</h2>
+          <Link href="/find-clients" className="more">All professions →</Link>
+        </div>
+        <div className="pills">
+          {professions.map((p) => <Link key={p.slug} href={`/find-clients/${p.slug}`} className="tagpill">{p.name}</Link>)}
+        </div>
+      </section>
+
+      <section className="home-sec">
+        <div className="sec-head">
+          <h2>Guides</h2>
+          <Link href="/guides" className="more">All guides →</Link>
+        </div>
+        <CardGrid items={featuredGuides} href={(g) => `/guides/${g.slug}`} kicker={(g) => g.category} title={(g) => g.title} text={(g) => g.excerpt} />
+      </section>
+
+      <section className="home-sec">
+        <div className="sec-head">
+          <h2>Outreach templates</h2>
+          <Link href="/templates" className="more">All templates →</Link>
+        </div>
+        <div className="pills">
+          {templates.map((t) => <Link key={t.slug} href={`/templates/${t.slug}`} className="tagpill">{t.title.replace(/^(Cold email template|Template):\s*/i, "")}</Link>)}
+        </div>
+      </section>
+
+      <Faqs faqs={FAQ} />
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "WebApplication",
+              name: SITE.name,
+              url: SITE.url,
+              description: SITE.description,
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Any (web browser)",
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            },
+            { "@type": "WebSite", name: SITE.name, url: SITE.url },
+            { "@type": "Organization", name: SITE.name, url: SITE.url, logo: SITE.url + "/icon.svg" },
+          ],
+        }}
+      />
+    </Page>
   );
 }
