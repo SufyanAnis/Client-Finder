@@ -1,4 +1,4 @@
-import { getGuide } from "../../../content";
+import titles from "../../../content/titles";
 import { ogCard, OG_SIZE } from "../../../lib/og";
 
 export const runtime = "edge";
@@ -7,6 +7,6 @@ export const contentType = "image/png";
 export const alt = "FindMyClients guide";
 
 export default function Image({ params }) {
-  const g = getGuide(params.slug);
+  const g = titles.guides[params.slug];
   return ogCard({ kicker: "Guide", title: g?.title || "FindMyClients guide", subtitle: "findmyclients · free guides for freelancers & agencies" });
 }
