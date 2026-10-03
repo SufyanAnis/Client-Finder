@@ -16,19 +16,19 @@ outreach templates that carry the SEO and the ads. Next.js 14 (App Router), depl
 
 ## Paywall: one free search, then Safepay credit packs
 
-- Every visitor gets  (default 1) free search, ever. After that each search costs one credit.
-- Credits are sold in packs (: Rs 499 / 1,999 / 4,999 for 10 / 50 / 150) through **Safepay** hosted
-  checkout. Paying issues a license key , shown on  and saved in the
-  browser; it is sent as the  header. Balances live in Redis against a SHA-256 of the key.
-- Fulfilment happens on the signed redirect (, HMAC-SHA256 of the tracker with the v1
-  secret) or the signed webhook (, HMAC-SHA512) — whichever arrives first, exactly once.
+- Every visitor gets `FREE_SEARCHES` (default 1) free search, ever. After that each search costs one credit.
+- Credits are sold in packs (`lib/plans.js`: Rs 499 / 1,999 / 4,999 for 10 / 50 / 150) through **Safepay** hosted
+  checkout. Paying issues a license key `FMC-XXXX-XXXX-XXXX-XXXX`, shown on `/pricing/success` and saved in the
+  browser; it is sent as the `x-fmc-key` header. Balances live in Redis against a SHA-256 of the key.
+- Fulfilment happens on the signed redirect (`/api/checkout/complete`, HMAC-SHA256 of the tracker with the v1
+  secret) or the signed webhook (`/api/safepay/webhook`, HMAC-SHA512) — whichever arrives first, exactly once.
 - Failed searches refund the credit (or the free search) automatically.
-- **The paywall only switches on when Safepay keys AND Upstash Redis are set** ( in
-  ); until then the site keeps free daily limits. Changing env vars needs a redeploy.
+- **The paywall only switches on when Safepay keys AND Upstash Redis are set** (`paywallEnabled()` in
+  `lib/credits.js`); until then the site keeps free daily limits. Changing env vars needs a redeploy.
 - Safepay setup: create the merchant account, copy the API key + v1 secret into Vercel env, add a webhook endpoint
-   and copy its secret, test with , then switch to
-  . Check the amount shown on Safepay checkout matches the price; if it shows 1/100th, set
-  .
+  `https://<site>/api/safepay/webhook` and copy its secret, test with `SAFEPAY_ENV=sandbox`, then switch to
+  `production`. Check the amount shown on Safepay checkout matches the price; if it shows 1/100th, set
+  `SAFEPAY_AMOUNT_MULTIPLIER=100`.
 
 ## Free-tier economics
 
