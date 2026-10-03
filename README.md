@@ -89,6 +89,26 @@ create table requests (
 
 (Server routes use the service_role key, which bypasses Row Level Security — no RLS policies needed. The key lives only on the server.)
 
+## 3c. Owner login (authentication)
+
+The whole app is locked behind a sign-in page at `/login` — every run of the finder spends
+your Groq/Tavily credits, so only you should reach it. The **public exceptions** are the
+`/request` form (+ its submit API), so prospects can still contact you.
+
+Set three env vars (locally in `.env.local`, and on Vercel for production):
+
+```
+AUTH_EMAIL=you@example.com        # the email you sign in with
+AUTH_PASSWORD=a-long-password     # the password you sign in with
+AUTH_SECRET=a-long-random-string  # signs the session cookie (optional; falls back to AUTH_PASSWORD)
+```
+
+How it works: `POST /api/auth/login` checks the credentials server-side (constant-time
+compare) and sets a signed, HttpOnly, 7-day session cookie; `middleware.js` verifies the
+HMAC-SHA256 signature on every page and API request and redirects (pages) or 401s (APIs)
+without it. "Sign out" in the nav clears the cookie. Leaving `AUTH_PASSWORD` empty turns
+the lock off entirely — handy for quick local hacking; never do it in production.
+
 ## 4. Storage & how the Excel sheet works
 
 By default, saved leads are stored in **your browser** (localStorage) and the **Export to Excel** button downloads the full sheet on demand. This needs **zero extra services** — it deploys with just the one API key.

@@ -30,6 +30,8 @@ a{ color:inherit; }
 .brand .tag{ font-family:'JetBrains Mono'; font-size:9.5px; color:var(--faint); letter-spacing:.16em; text-transform:uppercase; }
 .nav a.site{ font-size:13px; color:var(--muted); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
 .nav a.site:hover{ color:var(--gold); }
+.nav button.site{ font-size:13px; color:var(--muted); background:none; border:0; padding:0; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; }
+.nav button.site:hover{ color:var(--gold); }
 
 /* hero */
 .hero{ padding:66px 0 30px; }

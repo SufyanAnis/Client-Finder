@@ -24,6 +24,9 @@ export default function Page() {
                 Main site
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
               </a>
+              <form action="/api/auth/logout" method="post" style={{ display: "contents" }}>
+                <button className="site" type="submit">Sign out</button>
+              </form>
             </div>
           </div>
         </nav>
