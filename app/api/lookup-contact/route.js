@@ -5,8 +5,9 @@
 import { activeProvider, MISSING_KEY_MESSAGE } from "../../../lib/llm";
 import { searchAvailable } from "../../../lib/search";
 import { enrichContacts } from "../../../lib/enrich";
-import { LIMITS, take, refund, visitorId } from "../../../lib/ratelimit";
-import { isOwner, LIMIT_MESSAGE, CAPACITY_MESSAGE } from "../../../lib/guard";
+import { LIMITS, take } from "../../../lib/ratelimit";
+import { CAPACITY_MESSAGE } from "../../../lib/guard";
+import { meter, giveBack, limitMessage } from "../../../lib/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -27,20 +28,17 @@ export async function POST(req) {
   };
   if (!lead.company) return Response.json({ error: "Missing company." }, { status: 400 });
 
-  const owner = await isOwner();
-  let vid = null, quota = null;
-  if (!owner) {
-    vid = await visitorId(req);
-    quota = await take("lookup", vid, LIMITS.lookupsPerVisitor);
-    if (!quota.ok) return Response.json({ error: LIMIT_MESSAGE("contact lookups", LIMITS.lookupsPerVisitor), code: "limit" }, { status: 429 });
+  const m = await meter(req, "lookup");
+  if (!m.ok) return Response.json({ error: limitMessage(m, "contact lookups"), code: m.who === "free" ? "paywall" : "limit" }, { status: 429 });
+  if (m.who === "free") {
     const g = await take("websearch", "global", LIMITS.webSearchesPerDay);
     if (!g.ok) {
-      await refund("lookup", vid);
+      await giveBack(m);
       return Response.json({ error: CAPACITY_MESSAGE, code: "capacity" }, { status: 503 });
     }
   }
 
   const [found] = await enrichContacts([lead]);
   const contact = { email: found.email, phone: found.phone, linkedin: found.linkedin };
-  return Response.json({ contact, found: !!(contact.email || contact.phone || contact.linkedin), remaining: quota?.remaining ?? null });
+  return Response.json({ contact, found: !!(contact.email || contact.phone || contact.linkedin), remaining: m.remaining ?? null });
 }

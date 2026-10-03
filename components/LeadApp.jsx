@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import CopyButton from "./CopyButton";
+import Paywall, { readKey, saveKey } from "./Paywall";
 import { SERVICE_IDS, GEOS, SIZES } from "../lib/services";
 
 const CHANNELS = [{ id: "Email", icon: Mail }, { id: "LinkedIn", icon: Linkedin }, { id: "WhatsApp", icon: MessageCircle }];
@@ -17,6 +18,7 @@ const STORE_KEY = "fmc_pipeline_v1";
 const LEGACY_KEY = "swiftlabs_pipeline_v1";
 const ME_KEY = "fmc_me_v1";
 const OWNER_KEY = "fmc_owner";
+const TRIAL_KEY = "fmc_trial_used";
 const TURNSTILE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 const scoreColor = (n) => (n >= 80 ? "var(--green)" : n >= 60 ? "var(--gold)" : "var(--muted)");
@@ -24,7 +26,9 @@ const cleanDomain = (w = "") => w.replace(/^https?:\/\//, "").replace(/\/$/, "")
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
-export default function LeadApp() {
+// paywallOn: whether searches need credits after the free one (set by the server
+// from whether payments are configured). Off = free daily limits.
+export default function LeadApp({ paywallOn = false }) {
   const [service, setService] = useState(SERVICE_IDS[0]);
   const [customService, setCustomService] = useState("");
   const [geo, setGeo] = useState(GEOS[0]);
@@ -36,7 +40,10 @@ export default function LeadApp() {
   const [me, setMe] = useState({ name: "", business: "", offer: "" });
   const [meOpen, setMeOpen] = useState(false);
   const [owner, setOwner] = useState(false);
-  const [remaining, setRemaining] = useState(null);
+  const [licenseKey, setLicenseKey] = useState("");
+  const [balance, setBalance] = useState(null);
+  const [trialUsed, setTrialUsed] = useState(false);
+  const [paywall, setPaywall] = useState(""); // message when a search needs credits
 
   const [loading, setLoading] = useState(false);
   const [loadIdx, setLoadIdx] = useState(0);
@@ -63,6 +70,14 @@ export default function LeadApp() {
       if (m && typeof m === "object") setMe({ name: m.name || "", business: m.business || "", offer: m.offer || "" });
     } catch {}
     setOwner(lsGet(OWNER_KEY) === "1");
+    setTrialUsed(lsGet(TRIAL_KEY) === "1");
+    const k = readKey();
+    if (k) {
+      setLicenseKey(k);
+      fetch("/api/credits", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: k }) })
+        .then((r) => r.json()).then((d) => { if (d.valid) setBalance(d.balance); else if (d.error && !/switched on/.test(d.error)) { saveKey(""); setLicenseKey(""); } })
+        .catch(() => {});
+    }
 
     // Prefill from links like /?service=SEO&niche=dental+clinics#finder
     const q = new URLSearchParams(window.location.search);
@@ -87,20 +102,29 @@ export default function LeadApp() {
   }, [loading]);
 
   const noteQuota = (data) => {
-    if (typeof data?.remaining === "number") setRemaining(data.remaining);
+    if (typeof data?.balance === "number") setBalance(data.balance);
     if (typeof data?.owner === "boolean") { setOwner(data.owner); lsSet(OWNER_KEY, data.owner ? "1" : "0"); }
+    if (data?.trial) { setTrialUsed(true); lsSet(TRIAL_KEY, "1"); }
   };
+  // every API call carries the license key, if there is one
+  const headers = () => ({ "content-type": "application/json", ...(licenseKey ? { "x-fmc-key": licenseKey } : {}) });
+  const onKey = (k, bal) => { setLicenseKey(k); setBalance(bal); setPaywall(""); setError(""); };
 
   const findLeads = useCallback(async () => {
-    if (TURNSTILE_KEY && !turnstile.token) { setError("Please complete the quick human check above the button first."); return; }
-    setLoading(true); setError(""); setLeads([]); setLoadIdx(0);
+    if (TURNSTILE_KEY && !licenseKey && !turnstile.token) { setError("Please complete the quick human check above the button first."); return; }
+    setLoading(true); setError(""); setPaywall(""); setLeads([]); setLoadIdx(0);
     try {
       const res = await fetch("/api/find-leads", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: headers(),
         body: JSON.stringify({ geo: where, niche, size, service: svc, count, turnstile: turnstile.token }),
       });
       const data = await res.json().catch(() => ({}));
       noteQuota(data);
+      if (data.code === "paywall") {
+        setPaywall(data.error);
+        if (!licenseKey) { setTrialUsed(true); lsSet(TRIAL_KEY, "1"); }
+        return;
+      }
       if (!res.ok || data.error) {
         const e = new Error(data.error || "Request failed"); e.code = data.code; throw e;
       }
@@ -118,7 +142,7 @@ export default function LeadApp() {
       setLoading(false);
       turnstile.reset();
     }
-  }, [where, niche, size, svc, count, channel, turnstile]);
+  }, [where, niche, size, svc, count, channel, turnstile, licenseKey]);
 
   // updates are keyed on a stable row id, never on array index — the list can be
   // prepended to or filtered while the request is in flight
@@ -134,7 +158,7 @@ export default function LeadApp() {
     setList((xs) => xs.map((x) => (x[idKey] === rowId ? { ...x, drafting: true, draftError: false } : x)));
     try {
       const res = await fetch("/api/draft", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: headers(),
         body: JSON.stringify({
           company: L.company, location: L.location, why_fit: L.why_fit, signal: L.signal,
           contact_role: L.contact_role, service: L.service || svc, channel: useChannel, sender: me,
@@ -156,7 +180,7 @@ export default function LeadApp() {
     patch({ looking: true, lookupNote: "" });
     try {
       const res = await fetch("/api/lookup-contact", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: headers(),
         body: JSON.stringify({ company: L.company, website: L.website, location: L.location }),
       });
       const data = await res.json().catch(() => ({}));
@@ -301,9 +325,15 @@ export default function LeadApp() {
           {loading ? <><Loader2 className="spin" size={18} /> Researching...</> : <><Search size={18} /> Find leads <ArrowRight size={17} /></>}
         </button>
         <div className="quota">
-          {owner ? "Owner mode · unlimited" : remaining === null ? "Free · no signup · a few searches per day" : `${remaining} free search${remaining === 1 ? "" : "es"} left today`}
+          {owner ? "Owner mode · unlimited"
+            : !paywallOn ? "Free · no signup · a few searches per day"
+            : licenseKey ? <>{balance === null ? "Key active" : `${balance} credit${balance === 1 ? "" : "s"} left`} · <a href="/pricing">top up</a></>
+            : trialUsed ? <>Free search used · <a href="/pricing">get credits</a> from Rs 499</>
+            : "Your first search is free · no signup"}
         </div>
       </div>
+
+      {paywall && <Paywall message={paywall} onKey={onKey} />}
 
       <div aria-live="polite">
         {loading && <div className="status"><Loader2 className="spin" size={17} />{LOADING[loadIdx]}</div>}

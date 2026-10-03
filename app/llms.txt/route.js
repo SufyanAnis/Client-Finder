@@ -10,7 +10,7 @@ export function GET() {
   const body = [
     `# ${SITE.name}`,
     `> ${SITE.description} The site also publishes free, practical guides on finding and winning clients, cold outreach, pricing and proposals for freelancers and small agencies.`,
-    `Key facts: ${SITE.name} is free to use with daily limits and no signup. It finds companies with a current demand signal (job posts for a skill, funding, launches, new openings), scores fit 0-100, drafts Email/LinkedIn/WhatsApp outreach, and exports a pipeline to Excel. It never sends messages itself and shows only public company contact details. Built by ${SITE.operator} (${SITE.operatorLocation}).`,
+    `Key facts: ${SITE.name} gives every visitor one free search with no signup; further searches use prepaid credits (packs from Rs 499 for 10 searches, see ${absUrl("/pricing")}). It finds companies with a current demand signal (job posts for a skill, funding, launches, new openings), scores fit 0-100, drafts Email/LinkedIn/WhatsApp outreach, and exports a pipeline to Excel. It never sends messages itself and shows only public company contact details. Built by ${SITE.operator} (${SITE.operatorLocation}).`,
     `Full text of every article: ${absUrl("/llms-full.txt")}`,
     `## Tools\n- [Lead finder](${absUrl("/")}): free AI lead finder for freelancers and agencies\n- [Freelance rate calculator](${absUrl("/tools/freelance-rate-calculator")}): work out a minimum hourly and day rate from your costs and billable time\n- [Cold email checker](${absUrl("/tools/cold-email-checker")}): check a cold email for length, spam triggers, personalization and a clear ask`,
     `## Guides\n${list(guides, (x) => `/guides/${x.slug}`)}`,

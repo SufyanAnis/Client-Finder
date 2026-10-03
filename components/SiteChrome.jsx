@@ -8,6 +8,7 @@ const NAV = [
   { href: "/templates", label: "Templates" },
   { href: "/find-clients", label: "By profession" },
   { href: "/tools", label: "Tools" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function Logo() {
@@ -26,7 +27,7 @@ export function SiteHeader() {
           <Logo />
           <div>
             <b style={{ display: "block", lineHeight: 1 }}>{SITE.name}</b>
-            <span className="tag">Free lead finder</span>
+            <span className="tag">AI lead finder</span>
           </div>
         </Link>
         <div className="nav-links">
@@ -57,7 +58,7 @@ export function SiteFooter() {
             <b>{SITE.name}</b>
           </div>
           <p className="foot-about">
-            A free lead finder for freelancers and small agencies. It finds and drafts — you review and send.
+            An AI lead finder for freelancers and small agencies — first search free. It finds and drafts; you review and send.
             No auto-sending, no scraping behind logins.
           </p>
         </div>
@@ -85,6 +86,7 @@ export function SiteFooter() {
           <Link href="/contact">Contact</Link>
           <Link href="/privacy">Privacy policy</Link>
           <Link href="/terms">Terms of use</Link>
+          <Link href="/refund-policy">Refund policy</Link>
           <Link href="/authors/sufyan-anis">Author</Link>
         </div>
       </div>

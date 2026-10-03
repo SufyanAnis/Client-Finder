@@ -104,7 +104,8 @@ export default function Privacy() {
             <li><strong>Vercel</strong> — hosting.</li>
             <li><strong>Groq</strong> (and, if configured, other AI providers such as Anthropic) — AI processing of search results and drafts.</li>
             <li><strong>Tavily</strong> — web search.</li>
-            <li><strong>Upstash</strong> — usage counters and the short-lived search cache.</li>
+            <li><strong>Upstash</strong> — usage counters, the short-lived search cache, and credit balances (stored against a one-way hash of your license key).</li>
+            <li><strong>Safepay</strong> — payment processing. Your card or wallet details are entered on Safepay's checkout and never reach our servers; we receive confirmation that an order was paid.</li>
             <li><strong>Web3Forms</strong> and <strong>Supabase</strong> — delivering and storing contact-form messages.</li>
             <li><strong>Google AdSense</strong> — advertising. <strong>Cloudflare</strong> — bot protection, if enabled.</li>
           </ul>

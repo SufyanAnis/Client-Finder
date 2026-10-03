@@ -196,3 +196,31 @@ a.kicker{ text-decoration:none; display:inline-block; }
 .chk-pass .chk-dot{ background:var(--green); }
 .chk-warn .chk-dot{ background:var(--gold); }
 .chk-fail .chk-dot{ background:var(--red); }
+
+/* ===== pricing / paywall ===== */
+.packs{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media(max-width:760px){ .packs{ grid-template-columns:1fr; } }
+.pack{ position:relative; background:linear-gradient(180deg,var(--panel),#0e0e11); border:1px solid var(--line); border-radius:16px; padding:22px 20px; display:flex; flex-direction:column; gap:6px; }
+.pack-pop{ border-color:var(--gold); box-shadow:0 0 0 1px rgba(231,178,76,.25), 0 10px 40px -20px rgba(231,178,76,.5); }
+.pack-badge{ position:absolute; top:-10px; left:18px; background:var(--gold); color:#1a1406; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; }
+.pack-name{ font-family:var(--f-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.pack-price{ font-family:var(--f-display); font-weight:800; font-size:34px; letter-spacing:-.02em; }
+.pack-credits{ color:var(--gold); font-size:14px; font-weight:600; }
+.pack-blurb{ color:var(--muted); font-size:14px; line-height:1.5; margin:4px 0 6px; }
+.pack-go{ margin-top:auto; width:100%; justify-content:center; }
+.packs-compact .pack{ padding:16px; }
+.packs-compact .pack-price{ font-size:26px; }
+.pack-fine{ display:flex; align-items:center; gap:6px; margin-top:12px; }
+.paywall{ margin-top:22px; padding:22px; border-radius:18px; border:1px solid rgba(231,178,76,.35); background:linear-gradient(135deg,rgba(231,178,76,.1),rgba(231,178,76,.02)); }
+.paywall-t{ font-family:var(--f-display); font-weight:800; font-size:24px; letter-spacing:-.02em; }
+.paywall-m{ color:var(--muted); font-size:14.5px; line-height:1.55; margin:6px 0 18px; }
+.keyentry{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:16px; }
+.keyentry > svg{ color:var(--gold-dim); }
+.keyentry .inp{ flex:1 1 260px; font-family:var(--f-mono); letter-spacing:.04em; }
+.keyentry-msg{ flex-basis:100%; font-size:13px; display:flex; align-items:center; gap:6px; }
+.keyentry-msg.err{ color:var(--red); }
+.keyentry-msg.ok{ color:var(--green); }
+.quota a{ color:var(--gold); }
+.keybox{ margin:22px 0 10px; padding:20px; border-radius:14px; border:1px dashed var(--gold-dim); background:var(--panel); display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
+.keybox .label{ flex-basis:100%; margin:0; }
+.keybox-k{ font-family:var(--f-mono); font-size:clamp(18px,4vw,26px); letter-spacing:.06em; color:var(--gold); word-break:break-all; }

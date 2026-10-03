@@ -54,10 +54,18 @@ export default function Terms() {
             data product, overload the service, or interfere with its security. We may block access that breaks these rules.
           </p>
 
-          <h2>Free limits and availability</h2>
+          <h2>Free search, credits and payments</h2>
           <p>
-            Free use is subject to daily limits that we may change at any time. The service may be unavailable, rate-limited or
-            changed without notice, and features may be added or removed.
+            Each visitor gets one free search. Further searches use prepaid credits bought in packs through our payment
+            processor, Safepay; prices are shown on the <Link href="/pricing">pricing page</Link> in Pakistani rupees. One credit
+            is one search. Credits are tied to a license key, don't expire and can't be exchanged for cash except under the{" "}
+            <Link href="/refund-policy">refund policy</Link>. Keep your key private — anyone with it can use its credits.
+            Drafts and contact lookups are included within reasonable daily limits.
+          </p>
+          <h2>Availability</h2>
+          <p>
+            The service may occasionally be unavailable, rate-limited or changed, and features may be added or removed. A
+            search that fails is not charged.
           </p>
 
           <h2>Content and intellectual property</h2>

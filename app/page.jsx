@@ -1,5 +1,6 @@
 import Link from "next/link";
 import LeadApp from "../components/LeadApp";
+import { paywallEnabled } from "../lib/credits";
 import { Page } from "../components/SiteChrome";
 import { Faqs, JsonLd } from "../components/Content";
 import { CardGrid } from "../components/Related";
@@ -14,8 +15,8 @@ export const metadata = {
 
 const FAQ = [
   {
-    q: "Is FindMyClients really free?",
-    a: "Yes. Anyone can run a few searches a day with no signup, plus a handful of message drafts and contact lookups. The limits exist because every search runs live web research, which costs money; they reset at midnight UTC. The site is supported by ads on the guide and template pages.",
+    q: "How much does FindMyClients cost?",
+    a: "Your first search is free, with no signup. After that you buy a credit pack — from Rs 499 for 10 searches — and each search uses one credit. Credits never expire, failed searches are refunded automatically, and the guides, templates and free tools stay free for everyone. See [pricing](/pricing).",
   },
   {
     q: "Where do the leads come from?",
@@ -45,7 +46,7 @@ export default function Home() {
   return (
     <Page>
       <header className="hero">
-        <div className="pill"><span className="dot" /> Free · no signup · live web research</div>
+        <div className="pill"><span className="dot" /> First search free · no signup · live web research</div>
         <h1>Find clients who need you <em>right now.</em></h1>
         <p>
           Tell it what you sell and who you want to work with. {SITE.name} searches the live web for real companies
@@ -54,7 +55,7 @@ export default function Home() {
         </p>
       </header>
 
-      <LeadApp />
+      <LeadApp paywallOn={paywallEnabled()} />
 
       <section className="home-sec">
         <h2>How it works</h2>

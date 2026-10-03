@@ -14,6 +14,22 @@ outreach templates that carry the SEO and the ads. Next.js 14 (App Router), depl
   FAQPage, BreadcrumbList), generated OG image, static generation for every content page.
 - **Ads** — AdSense script, verification meta tag, `/ads.txt` and manual ad slots, all switched on by env vars.
 
+## Paywall: one free search, then Safepay credit packs
+
+- Every visitor gets  (default 1) free search, ever. After that each search costs one credit.
+- Credits are sold in packs (: Rs 499 / 1,999 / 4,999 for 10 / 50 / 150) through **Safepay** hosted
+  checkout. Paying issues a license key , shown on  and saved in the
+  browser; it is sent as the  header. Balances live in Redis against a SHA-256 of the key.
+- Fulfilment happens on the signed redirect (, HMAC-SHA256 of the tracker with the v1
+  secret) or the signed webhook (, HMAC-SHA512) — whichever arrives first, exactly once.
+- Failed searches refund the credit (or the free search) automatically.
+- **The paywall only switches on when Safepay keys AND Upstash Redis are set** ( in
+  ); until then the site keeps free daily limits. Changing env vars needs a redeploy.
+- Safepay setup: create the merchant account, copy the API key + v1 secret into Vercel env, add a webhook endpoint
+   and copy its secret, test with , then switch to
+  . Check the amount shown on Safepay checkout matches the price; if it shows 1/100th, set
+  .
+
 ## Free-tier economics
 
 Every public search costs real API credits, so the site meters use:

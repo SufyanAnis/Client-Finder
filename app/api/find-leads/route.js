@@ -3,16 +3,19 @@
 // Anthropic/Gemini search the web themselves; Groq has no native search, so we
 // run a Tavily search first and feed the results to the model.
 //
-// Public visitors are metered (lib/ratelimit) and get up to 5 leads with no
-// automatic contact enrichment — that costs one extra web search per lead, so
-// it's on demand via /api/lookup-contact instead. The signed-in owner is
-// unlimited and keeps automatic enrichment.
+// Paywall: every visitor gets LIMITS.freeSearches (default 1) free search, ever;
+// after that each search costs one credit from a license key bought via Safepay
+// (header x-fmc-key, see lib/credits). Failures are refunded. Public results stop
+// at 5 leads with no automatic contact enrichment (one extra web search per lead,
+// so it is on demand via /api/lookup-contact). The signed-in owner is unlimited.
 
 import { generate, MISSING_KEY_MESSAGE, activeProvider, providerHasNativeSearch } from "../../../lib/llm";
 import { searchAvailable, webSearch, ATS_DOMAINS, NOISE_DOMAINS } from "../../../lib/search";
 import { roleFor } from "../../../lib/services";
-import { LIMITS, take, refund, remaining, visitorId, cacheGet, cacheSet } from "../../../lib/ratelimit";
-import { isOwner, verifyTurnstile, LIMIT_MESSAGE, CAPACITY_MESSAGE } from "../../../lib/guard";
+import { LIMITS, take, takeLifetime, refundLifetime, visitorId, cacheGet, cacheSet } from "../../../lib/ratelimit";
+import { spendCredit, refundCredit, getBalance, paywallEnabled } from "../../../lib/credits";
+import { refund } from "../../../lib/ratelimit";
+import { isOwner, verifyTurnstile, CAPACITY_MESSAGE } from "../../../lib/guard";
 import { enrichContacts } from "../../../lib/enrich";
 
 export const runtime = "nodejs";
@@ -99,37 +102,49 @@ export async function POST(req) {
   const cacheKey = "leads:" + [service, geo, niche, size, n].map((s) => String(s).toLowerCase()).join("|");
   const cached = await cacheGet(cacheKey);
 
-  let vid = null;
-  let quota = null;
+  // Who pays for this search: the owner (nobody), a license key (one credit), or
+  // the visitor's one free trial search. Cached results cost nobody anything.
+  const key = req.headers.get("x-fmc-key") || "";
+  const paywall = paywallEnabled();
+  let mode = owner ? "owner" : paywall ? "trial" : "daily";
+  let vid = null, balance = null;
   if (!owner) {
     vid = await visitorId(req);
-    if (!cached) {
+    if (cached) {
+      return Response.json({ leads: cached, cached: true, owner, balance: key ? await getBalance(key) : null });
+    }
+    if (key && paywall) {
+      balance = await spendCredit(key);
+      if (balance === null) {
+        return Response.json({ error: "This key has no credits left. Top up to keep searching.", code: "paywall", balance: 0 }, { status: 402 });
+      }
+      mode = "paid";
+    } else {
       if (!(await verifyTurnstile(body?.turnstile, req))) {
         return Response.json({ error: "Please complete the quick human check, then try again.", code: "turnstile" }, { status: 403 });
       }
-      quota = await take("search", vid, LIMITS.searchesPerVisitor);
-      if (!quota.ok) {
-        return Response.json({ error: LIMIT_MESSAGE("searches", LIMITS.searchesPerVisitor), code: "limit", remaining: 0 }, { status: 429 });
+      const t = paywall ? await takeLifetime("trial", vid, LIMITS.freeSearches) : await take("search", vid, LIMITS.searchesPerDay);
+      if (!t.ok) {
+        return paywall
+          ? Response.json({ error: "You've used your free search.", code: "paywall" }, { status: 402 })
+          : Response.json({ error: `You've used today's ${LIMITS.searchesPerDay} free searches. They reset at midnight UTC.`, code: "limit" }, { status: 429 });
       }
-    }
-  }
-
-  if (cached) {
-    const left = owner ? null : await remaining("search", vid, LIMITS.searchesPerVisitor);
-    return Response.json({ leads: cached, cached: true, remaining: left, owner });
-  }
-
-  // Site-wide budget for upstream web searches (owner's runs don't count).
-  if (!owner && !providerHasNativeSearch(provider)) {
-    const g = await take("websearch", "global", LIMITS.webSearchesPerDay, SEARCHES_PER_RUN);
-    if (!g.ok) {
-      await refund("search", vid);
-      return Response.json({ error: CAPACITY_MESSAGE, code: "capacity" }, { status: 503 });
+      // Site-wide budget protects the free tier only; paying users are never blocked by it.
+      if (!providerHasNativeSearch(provider)) {
+        const g = await take("websearch", "global", LIMITS.webSearchesPerDay, SEARCHES_PER_RUN);
+        if (!g.ok) {
+          mode === "trial" ? await refundLifetime("trial", vid) : await refund("search", vid);
+          return Response.json({ error: CAPACITY_MESSAGE, code: "capacity" }, { status: 503 });
+        }
+      }
     }
   }
 
   const fail = async (status, payload) => {
-    if (!owner) await refund("search", vid); // don't charge a visitor for our failure
+    // never charge for our own failure
+    if (mode === "paid") await refundCredit(key);
+    if (mode === "trial") await refundLifetime("trial", vid);
+    if (mode === "daily") await refund("search", vid);
     return Response.json(payload, { status });
   };
 
@@ -141,7 +156,7 @@ export async function POST(req) {
         return fail(500, { error: "This AI provider can't search the web. Add TAVILY_API_KEY (free, tavily.com) so the finder can pull real companies." });
       }
       const { results, extra } = await gatherSignals({ service, geo, niche });
-      if (extra && !owner) await take("websearch", "global", LIMITS.webSearchesPerDay + 5, extra); // small overdraft allowed
+      if (extra && (mode === "trial" || mode === "daily")) await take("websearch", "global", LIMITS.webSearchesPerDay + 5, extra); // small overdraft allowed
       if (!results.length) return fail(502, { error: "Web search returned nothing — broaden the niche or location." });
       searchContext = results.map((r, i) => `[${i + 1}] (${r.kind}) ${r.title}\n${r.url}\n${r.content}`).join("\n\n");
     }
@@ -190,7 +205,7 @@ export async function POST(req) {
     if (owner) leads = await enrichContacts(leads);
 
     await cacheSet(cacheKey, leads, CACHE_TTL);
-    return Response.json({ leads, remaining: quota?.remaining ?? null, owner });
+    return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
   } catch (err) {
     return fail(500, { error: "Request failed: " + (err?.message || "unknown") });
   }

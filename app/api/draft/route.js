@@ -4,8 +4,9 @@
 // from the "About you" fields, saved in their browser).
 
 import { generate, MISSING_KEY_MESSAGE, activeProvider } from "../../../lib/llm";
-import { LIMITS, take, refund, visitorId } from "../../../lib/ratelimit";
-import { isOwner, LIMIT_MESSAGE, CAPACITY_MESSAGE } from "../../../lib/guard";
+import { LIMITS, take } from "../../../lib/ratelimit";
+import { CAPACITY_MESSAGE } from "../../../lib/guard";
+import { meter, giveBack, limitMessage } from "../../../lib/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -31,15 +32,12 @@ export async function POST(req) {
   };
   if (!company) return Response.json({ error: "Missing company." }, { status: 400 });
 
-  const owner = await isOwner();
-  let vid = null, quota = null;
-  if (!owner) {
-    vid = await visitorId(req);
-    quota = await take("draft", vid, LIMITS.draftsPerVisitor);
-    if (!quota.ok) return Response.json({ error: LIMIT_MESSAGE("drafts", LIMITS.draftsPerVisitor), code: "limit" }, { status: 429 });
+  const m = await meter(req, "draft");
+  if (!m.ok) return Response.json({ error: limitMessage(m, "drafts"), code: m.who === "free" ? "paywall" : "limit" }, { status: 429 });
+  if (m.who === "free") {
     const g = await take("llm", "global", LIMITS.llmCallsPerDay);
     if (!g.ok) {
-      await refund("draft", vid);
+      await giveBack(m);
       return Response.json({ error: CAPACITY_MESSAGE, code: "capacity" }, { status: 503 });
     }
   }
@@ -65,18 +63,18 @@ ${fmt}
 Reference the specific trigger naturally so it reads researched, not mass-sent. Do not invent facts about the sender (no made-up clients, results, prices or years of experience) beyond what is stated above. Address the recipient as {first name} (a placeholder the sender fills in). One soft call to action (a short reply or a quick call). Warm and human, zero buzzwords, no "I hope this finds you well", no exclamation hype. ${signOff} Output only the message.`;
 
   try {
-    const result = await generate({ prompt, maxTokens: 600, webSearch: false, fast: !owner });
+    const result = await generate({ prompt, maxTokens: 600, webSearch: false, fast: m.who === "free" });
     if (!result.ok) {
-      if (!owner) await refund("draft", vid);
+      await giveBack(m);
       return Response.json({ error: result.error }, { status: result.status });
     }
     if (result.stop === "refusal" || !result.text) {
-      if (!owner) await refund("draft", vid);
+      await giveBack(m);
       return Response.json({ error: "The model declined to draft this one — try again." }, { status: 502 });
     }
-    return Response.json({ message: result.text, remaining: quota?.remaining ?? null });
+    return Response.json({ message: result.text, remaining: m.remaining ?? null });
   } catch (err) {
-    if (!owner) await refund("draft", vid);
+    await giveBack(m);
     return Response.json({ error: "Request failed: " + (err?.message || "unknown") }, { status: 500 });
   }
 }
