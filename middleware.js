@@ -15,6 +15,13 @@ export async function middleware(req) {
   if (session) return NextResponse.next();
 
   const { pathname, search } = req.nextUrl;
+  // Links the owner clicks in the browser (Connect Gmail, Google's callback) go to
+  // the login page instead of showing raw JSON; they return to the agent after.
+  if (pathname === "/api/gmail/auth" || pathname === "/api/gmail/callback") {
+    const login = new URL("/login", req.url);
+    login.searchParams.set("next", "/agent");
+    return NextResponse.redirect(login);
+  }
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Signed out — log in again to continue." }, { status: 401 });
   }
