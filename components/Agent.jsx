@@ -98,6 +98,29 @@ export default function Agent() {
     flag(l.id, false);
   }
 
+  // Without the Gmail connection: open Gmail's compose window pre-filled, the owner
+  // clicks Send there, and the lead is tracked as sent (replies get pasted in).
+  function composeInGmail(l, { to, subject, body, followup }) {
+    const p = new URLSearchParams({ view: "cm", fs: "1", to, su: subject || "", body });
+    window.open(`https://mail.google.com/mail/?${p}`, "_blank", "noopener");
+    const now = new Date().toISOString();
+    upd(l.id, (x) => ({
+      status: followup === "response" ? "replied" : "sent", manual: true, sentAt: x.sentAt || now, lastSentAt: now,
+      followups: followup === "followup" ? (x.followups || 0) + 1 : x.followups || 0,
+      messages: [...(x.messages || []), { fromMe: true, date: now, text: body }], pending: null,
+    }));
+  }
+
+  async function pasteReply(l, text) {
+    flag(l.id, "analyze"); setMsg("");
+    try {
+      const { analysis } = await post("/api/agent/analyze", { text });
+      const now = new Date().toISOString();
+      upd(l.id, (x) => ({ analysis, replies: (x.replies || 0) + 1, lastSeen: now, status: analysis.stop ? "stopped" : "replied", messages: [...(x.messages || []), { fromMe: false, date: now, text }], pasting: false }));
+    } catch (e) { setMsg(e.message); }
+    flag(l.id, false);
+  }
+
   async function markDone(l) {
     try { await navigator.clipboard.writeText((l.draft.subject ? l.draft.subject + "\n\n" : "") + l.draft.body); } catch {}
     window.open(l.url || (l.website && "https://" + host(l.website)), "_blank", "noopener");
@@ -171,7 +194,7 @@ export default function Agent() {
           <button key={id} type="button" className={"chip" + (tab === id ? " on" : "")} onClick={() => setTab(id)}><Ic size={13} /> {label}</button>
         ))}
       </div>
-      {gmail && !gmail.connected && tab !== "setup" && <div className="errbox" style={{ margin: "12px 0" }}><AlertTriangle size={16} /> Gmail isn't connected — open <b style={{ margin: "0 4px" }}>Setup</b> to connect it before sending emails.</div>}
+      {gmail && !gmail.connected && tab !== "setup" && <div className="errbox" style={{ margin: "12px 0" }}><AlertTriangle size={16} /> Gmail isn't connected — emails open in Gmail for you to send, and you paste replies in. Connect it in <b style={{ margin: "0 4px" }}>Setup</b> for one-click sending and automatic reply tracking.</div>}
       {profileMissing && tab === "queue" && <div className="errbox" style={{ margin: "12px 0" }}><AlertTriangle size={16} /> Fill in your name and services in <b style={{ margin: "0 4px" }}>Setup</b> so drafts sound like you.</div>}
       {msg && <div className="fine" style={{ margin: "10px 0", color: "var(--gold)" }}>{msg}</div>}
 
@@ -230,7 +253,9 @@ export default function Agent() {
                   <textarea className="inp" rows={8} value={l.draft.body} onChange={(e) => upd(l.id, { draft: { ...l.draft, body: e.target.value } })} />
                   {l.kind === "email" && !l.draft.to && <div className="fine" style={{ color: "var(--red)" }}>No public email found on their site — add one, or switch to applying/contacting via their website.</div>}
                   <div className="actions">
-                    {l.kind === "email" ? (
+                    {l.kind === "email" && !gmail?.connected ? (
+                      <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => composeInGmail(l, l.draft)} disabled={!l.draft.to}><Mail size={16} /> Open in Gmail to send</button>
+                    ) : l.kind === "email" ? (
                       <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => sendEmail(l, l.draft)} disabled={!!busy[l.id] || !l.draft.to}>{busy[l.id] === "send" ? <><Loader2 className="spin" size={16} /> Sending…</> : <><Send size={16} /> Approve & send from Gmail</>}</button>
                     ) : (
                       <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => markDone(l)}><ExternalLink size={16} /> Copy & open {l.kind === "apply" ? "application" : "post"} — mark done</button>
@@ -277,19 +302,22 @@ export default function Agent() {
                   {l.messages.map((m, i) => <div key={i} className="msgtext" style={{ borderTop: "1px solid var(--line)" }}><b>{m.fromMe ? "You" : "Them"}</b> · {new Date(m.date).toLocaleString()}{"\n"}{m.text}</div>)}
                 </details>
               )}
+              {l.pasting && <PasteReply busy={busy[l.id] === "analyze"} onSubmit={(t) => pasteReply(l, t)} onCancel={() => upd(l.id, { pasting: false })} />}
               {l.pending ? (
                 <div className="agent-draft">
                   <textarea className="inp" rows={6} value={l.pending.body} onChange={(e) => upd(l.id, { pending: { ...l.pending, body: e.target.value } })} />
                   <div className="actions">
                     <button className="go" style={{ width: "auto", padding: "11px 18px" }} disabled={!!busy[l.id]} onClick={() => {
+                      if (!gmail?.connected || !l.threadId) return composeInGmail(l, { to: l.draft.to, subject: "Re: " + (l.draft.subject || "").replace(/^re:\s*/i, ""), body: l.pending.body, followup: l.pending.type });
                       const last = [...(l.messages || [])].reverse().find((m) => m.messageId);
                       sendEmail(l, { to: l.draft.to, subject: "Re: " + (l.draft.subject || "").replace(/^re:\s*/i, ""), body: l.pending.body, threadId: l.threadId, inReplyTo: last?.messageId || l.messageId, followup: l.pending.type });
-                    }}>{busy[l.id] === "send" ? <Loader2 className="spin" size={16} /> : <Send size={16} />} Approve & send in thread</button>
+                    }}>{busy[l.id] === "send" ? <Loader2 className="spin" size={16} /> : <Send size={16} />} {gmail?.connected && l.threadId ? "Approve & send in thread" : "Open in Gmail to send"}</button>
                     <button className="btn" onClick={() => upd(l.id, { pending: null })}>Discard</button>
                   </div>
                 </div>
-              ) : l.kind === "email" && l.threadId && !["stopped", "lost", "won"].includes(l.status) && (
+              ) : l.kind === "email" && !["stopped", "lost", "won"].includes(l.status) && (
                 <div className="actions">
+                  {!l.threadId && <button className="btn" onClick={() => upd(l.id, { pasting: !l.pasting })}><Inbox size={15} /> Paste their reply</button>}
                   {l.replies > 0 && <button className="btn" onClick={() => draft(l, "response")} disabled={!!busy[l.id]}><Sparkles size={15} /> Draft response</button>}
                   {followUpDue(l) && <button className="btn" onClick={() => draft(l, "followup")} disabled={!!busy[l.id]}><Sparkles size={15} /> Draft follow-up</button>}
                 </div>
@@ -319,6 +347,19 @@ export default function Agent() {
         </div>
       )}
     </>
+  );
+}
+
+function PasteReply({ busy, onSubmit, onCancel }) {
+  const [t, setT] = useState("");
+  return (
+    <div className="agent-draft">
+      <textarea className="inp" rows={5} value={t} onChange={(e) => setT(e.target.value)} placeholder="Paste the reply you got in Gmail…" />
+      <div className="actions">
+        <button className="btn" onClick={() => onSubmit(t)} disabled={busy || !t.trim()}>{busy ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />} Analyse reply</button>
+        <button className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
   );
 }
 
