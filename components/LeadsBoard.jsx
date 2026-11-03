@@ -162,6 +162,7 @@ export function FeedBoard({ items, name }) {
                 {x.detail && <div className="leadrow-text" style={{ marginTop: 4, color: "var(--muted)", fontSize: 13 }}>{x.detail}</div>}
                 <div className="leadrow-meta">
                   <span>via {x.source}</span>
+                  {x.jobType && <span className="budget">{x.jobType}</span>}
                   <span>{x.category}</span>
                   {x.location && <span>{x.location}</span>}
                   {x.posted && <span>{ago(x.posted)}</span>}

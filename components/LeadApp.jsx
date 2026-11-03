@@ -14,7 +14,7 @@ import { BUSINESS_TYPES } from "../lib/places";
 import { SERVICE_IDS, GEOS, SIZES } from "../lib/services";
 
 const CHANNELS = [{ id: "Email", icon: Mail }, { id: "LinkedIn", icon: Linkedin }, { id: "WhatsApp", icon: MessageCircle }];
-const SOURCES = [{ id: "companies", label: "Companies (job posts, funding, launches)" }, { id: "reddit", label: "Reddit [Hiring] posts" }, { id: "maps", label: "Local businesses (map)" }];
+const SOURCES = [{ id: "companies", label: "Companies (job posts, funding, launches)" }, { id: "reddit", label: "Reddit [Hiring] posts" }, { id: "x", label: "X (Twitter) hiring posts" }, { id: "maps", label: "Local businesses (map)" }];
 const LOADING = ["Scanning the open web...", "Shortlisting real companies...", "Reading buying signals...", "Scoring fit..."];
 const STORE_KEY = "fmc_pipeline_v1";
 const LEGACY_KEY = "swiftlabs_pipeline_v1";
@@ -136,7 +136,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
       // so later saves/drafts don't pick up whatever the chips say at that moment
       setRan({ geo: where });
       setLeads((data.leads || []).map((p) => ({
-        ...p, _id: crypto.randomUUID(), service: svc, channel: p.kind === "reddit" ? "Reddit" : channel, message: null, drafting: false, draftError: false,
+        ...p, _id: crypto.randomUUID(), service: svc, channel: p.kind === "reddit" ? "Reddit" : p.kind === "x" ? "X" : channel, message: null, drafting: false, draftError: false,
       })));
     } catch (err) {
       setError(err.code === "limit" || err.code === "capacity" || err.code === "turnstile"
@@ -158,7 +158,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
     if (!L) return;
     // a card draft follows the currently selected channel chip (matching the button label);
     // a pipeline row keeps the channel it was saved with
-    const useChannel = L.kind === "reddit" || L.channel === "Reddit" ? "Reddit" : target === "leads" ? channel : (L.channel || channel);
+    const useChannel = L.kind === "x" || L.channel === "X" ? "X" : L.kind === "reddit" || L.channel === "Reddit" ? "Reddit" : target === "leads" ? channel : (L.channel || channel);
     setList((xs) => xs.map((x) => (x[idKey] === rowId ? { ...x, drafting: true, draftError: false } : x)));
     try {
       const res = await fetch("/api/draft", {
@@ -259,7 +259,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
               <button key={s.id} type="button" className={"chip" + (source === s.id ? " on" : "")} onClick={() => setSource(s.id)}>{s.label}</button>
             ))}
           </div>
-          {source === "reddit" && <div className="me-note" style={{ marginTop: 8 }}>Finds this week's public Reddit posts from people hiring for your service. Location and company size don't apply. Browse everything for free on <a href="/leads">Fresh leads</a>.</div>}
+          {(source === "reddit" || source === "x") && <div className="me-note" style={{ marginTop: 8 }}>Finds recent public {source === "x" ? "X (Twitter)" : "Reddit"} posts from people hiring for your service. Location and company size don't apply. Browse everything for free on <a href="/leads">Fresh leads</a>.</div>}
           {source === "maps" && <div className="me-note" style={{ marginTop: 8 }}>Local businesses from map listings in one city, with phone and website where listed. Businesses with <b>no website</b> come first — perfect for web, SEO and design. Type a <b>city</b> under "Where are your clients?".</div>}
           {source === "maps" && (
             <label className="toggle">
@@ -408,7 +408,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
               <div className="actions">
                 {!L.message && (
                   <button className="btn" onClick={() => draftMessage(L._id, "leads")} disabled={L.drafting}>
-                    {L.drafting ? <><Loader2 className="spin" size={15} /> Drafting...</> : <><Sparkles size={15} /> {L.draftError ? "Retry draft" : L.kind === "reddit" ? "Draft Reddit reply" : `Draft ${channel}`}</>}
+                    {L.drafting ? <><Loader2 className="spin" size={15} /> Drafting...</> : <><Sparkles size={15} /> {L.draftError ? "Retry draft" : L.kind === "reddit" ? "Draft Reddit reply" : L.kind === "x" ? "Draft X reply" : `Draft ${channel}`}</>}
                   </button>
                 )}
                 {!L.kind && !L.looked && (!L.email || !L.phone) && (

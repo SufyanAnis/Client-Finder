@@ -18,6 +18,25 @@ import { refund } from "../../../lib/ratelimit";
 import { isOwner, verifyTurnstile, CAPACITY_MESSAGE } from "../../../lib/guard";
 import { enrichContacts } from "../../../lib/enrich";
 import { findHiringPosts, redditQueries } from "../../../lib/reddit";
+import { twitterLeads, xQueries } from "../../../lib/twitter";
+
+// X mode: indexed hiring tweets (2 web searches). Tweet text, author and link
+// come straight from the search result; nothing is generated.
+async function xLeads({ service, n }) {
+  const tweets = await twitterLeads(xQueries(service), { maxAgeDays: 14 });
+  return tweets.slice(0, n).map((t) => ({
+    kind: "x",
+    company: t.company,
+    website: "",
+    location: t.location || "X (Twitter)",
+    fit_score: 70,
+    why_fit: t.title,
+    signal: `Posted on X ${Math.max(1, Math.round((Date.now() - Date.parse(t.posted)) / 86400000))}d ago${t.salary ? " — " + t.salary : ""}`,
+    source: t.url,
+    contact_role: "Tweet author — reply or DM",
+    email: "", phone: "", linkedin: "",
+  }));
+}
 import { placesProvider, searchPlaces, findType } from "../../../lib/places";
 import { GEOS } from "../../../lib/services";
 
@@ -132,7 +151,7 @@ export async function POST(req) {
 
   let body;
   try { body = await req.json(); } catch { return Response.json({ error: "Bad request." }, { status: 400 }); }
-  const source = ["reddit", "maps"].includes(body?.source) ? body.source : "companies";
+  const source = ["reddit", "maps", "x"].includes(body?.source) ? body.source : "companies";
   const service = clip(body?.service, 80);
   const geo = clip(body?.geo, 80);
   const niche = clip(body?.niche, 120);
@@ -207,6 +226,17 @@ export async function POST(req) {
       return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
     } catch (err) {
       return fail(502, { error: err?.message || "Map search failed." });
+    }
+  }
+
+  if (source === "x") {
+    try {
+      const leads = await xLeads({ service, n });
+      if (!leads.length) return fail(502, { error: "No recent hiring tweets for this right now — try Reddit, or the X section on Fresh leads." });
+      await cacheSet(cacheKey, leads, 60 * 60 * 6);
+      return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
+    } catch (err) {
+      return fail(500, { error: "X search failed: " + (err?.message || "unknown") });
     }
   }
 

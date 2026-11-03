@@ -24,7 +24,7 @@ export async function POST(req) {
   const signal = clip(b?.signal, 300);
   const contact_role = clip(b?.contact_role, 80);
   const service = clip(b?.service, 80);
-  const channel = ["Email", "LinkedIn", "WhatsApp", "Reddit"].includes(b?.channel) ? b.channel : "Email";
+  const channel = ["Email", "LinkedIn", "WhatsApp", "Reddit", "X"].includes(b?.channel) ? b.channel : "Email";
   const me = {
     name: clip(b?.sender?.name, 60),
     business: clip(b?.sender?.business, 80),
@@ -47,6 +47,8 @@ export async function POST(req) {
       ? "Email format: first line exactly 'Subject: ...' (under 7 words, lowercase is fine), then a blank line, then 70-120 words."
       : channel === "LinkedIn"
         ? "LinkedIn message format: 40-70 words, no subject line."
+        : channel === "X"
+        ? "X (Twitter) reply format: a reply to their hiring tweet, under 260 characters, specific to what they asked for, no hashtags, no links, friendly; end with an easy question or offer to DM examples."
         : channel === "Reddit"
         ? "Reddit reply format: a public reply to their [Hiring] post, 40-80 words, casual and specific to what they asked for, no subject line, no links, no hard sell; offer to share 2-3 relevant examples and ask one question about their timeline or scope."
         : "WhatsApp format: 30-60 words, no subject line, and end with a short line offering to stop messaging if it's not relevant.";
