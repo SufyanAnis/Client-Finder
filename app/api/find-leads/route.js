@@ -26,25 +26,31 @@ const WEB_SERVICES = /web|seo|design|brand|social|marketing|app|copy|content/i;
 
 // Map mode: local businesses from Google Places or OpenStreetMap (via Geoapify).
 // Everything shown comes straight from the listing — no AI involved.
-async function mapLeads({ service, niche, city, n }) {
+async function mapLeads({ service, niche, city, n, noSiteOnly }) {
   const type = findType(niche);
-  const places = await searchPlaces({ type, query: niche, city, limit: n });
+  const places = await searchPlaces({ type, query: niche, city, limit: n, noSiteOnly });
   const webPitch = WEB_SERVICES.test(service);
+  const what = (type?.label || niche).toLowerCase();
   return places
     .map((p) => {
-      const noSite = !p.website;
-      const score = webPitch ? (noSite ? 90 : 60) : 70;
       const reviews = p.reviews ? `${p.rating ?? "?"}★ from ${p.reviews} reviews` : "";
+      // Busy (reviewed) businesses with no site are the best bet: real customers, no web presence.
+      const busy = p.reviews >= 20 ? 5 : 0;
+      const score = webPitch ? (p.presence === "none" ? 88 + busy : p.presence === "social" ? 82 + busy : 55) : 70;
+      const why = p.presence === "none"
+        ? `Small local business with no website at all${reviews ? ` (${reviews})` : ""} — ${webPitch ? "a clear opening for " + service.toLowerCase() : "likely under-served online"}.`
+        : p.presence === "social"
+          ? `Only a social page (${p.website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}) — no real website${reviews ? `, ${reviews}` : ""}.`
+          : `Local ${what} business${reviews ? " with " + reviews : ""}.`;
       return {
         kind: "maps",
         company: p.name,
-        website: p.website,
+        website: p.presence === "site" ? p.website : "",
+        social: p.presence === "social" ? p.website : "",
         location: p.address,
         fit_score: score,
-        why_fit: noSite
-          ? `No website on their map listing — ${webPitch ? "a clear opening for " + service.toLowerCase() : "likely an under-served local business"}.`
-          : `Local ${(type?.label || niche).toLowerCase()} business${reviews ? " with " + reviews : ""}.`,
-        signal: noSite ? "No website listed on the map" : reviews ? `Listed on ${p.source} — ${reviews}` : `Listed on ${p.source}`,
+        why_fit: why,
+        signal: p.presence === "none" ? "No website on their map listing" : p.presence === "social" ? "Only a Facebook/Instagram page — no real website" : reviews ? `Listed on ${p.source} — ${reviews}` : `Listed on ${p.source}`,
         source: p.url,
         contact_role: "Owner / manager",
         email: p.email,
@@ -144,7 +150,7 @@ export async function POST(req) {
   }
 
   // Same targeting within the cache window → same answer, free for everyone.
-  const cacheKey = "leads:" + [source, service, geo, niche, size, n].map((s) => String(s).toLowerCase()).join("|");
+  const cacheKey = "leads:" + [source, service, geo, niche, size, n, source === "maps" ? (body?.noSiteOnly !== false ? "nosite" : "all") : ""].map((s) => String(s).toLowerCase()).join("|");
   const cached = await cacheGet(cacheKey);
 
   // Who pays for this search: the owner (nobody), a license key (one credit), or
@@ -195,8 +201,8 @@ export async function POST(req) {
 
   if (source === "maps") {
     try {
-      const leads = await mapLeads({ service, niche, city: geo, n });
-      if (!leads.length) return fail(502, { error: `No ${niche.toLowerCase()} found on the map in ${geo}. Try a bigger city or another business type.` });
+      const leads = await mapLeads({ service, niche, city: geo, n, noSiteOnly: body?.noSiteOnly !== false });
+      if (!leads.length) return fail(502, { error: `${body?.noSiteOnly !== false ? "No small " + niche.toLowerCase() + " without a website found" : "No " + niche.toLowerCase() + " found"} in ${geo}. Try a bigger city, another business type, or turn off "No website yet only".` });
       await cacheSet(cacheKey, leads, 60 * 60 * 24);
       return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
     } catch (err) {

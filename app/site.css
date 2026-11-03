@@ -245,3 +245,7 @@ a.kicker{ text-decoration:none; display:inline-block; }
 .leadrow-act a.linkbtn{ text-decoration:none; }
 @media(max-width:600px){ .leadrow{ flex-direction:column; } .leadrow-act{ flex-direction:row; align-items:center; } }
 .co-name{ color:var(--gold); }
+.toggle{ display:flex; align-items:flex-start; gap:9px; margin-top:10px; font-size:13.5px; color:var(--muted); cursor:pointer; }
+.toggle input{ margin-top:3px; accent-color:var(--gold); width:16px; height:16px; }
+.toggle b{ color:var(--text); }
+.cmeta .nosite{ color:#1a1406; background:var(--gold); border-radius:999px; padding:1px 8px; font-weight:600; font-size:11px; }

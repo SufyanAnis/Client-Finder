@@ -39,6 +39,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
   const [size, setSize] = useState(SIZES[0]);
   const [channel, setChannel] = useState("Email");
   const [source, setSource] = useState("companies");
+  const [noSiteOnly, setNoSiteOnly] = useState(true);
   const [count, setCount] = useState(5);
   const [me, setMe] = useState({ name: "", business: "", offer: "" });
   const [meOpen, setMeOpen] = useState(false);
@@ -119,7 +120,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
     try {
       const res = await fetch("/api/find-leads", {
         method: "POST", headers: headers(),
-        body: JSON.stringify({ source, geo: where, niche, size, service: svc, count, turnstile: turnstile.token }),
+        body: JSON.stringify({ source, noSiteOnly, geo: where, niche, size, service: svc, count, turnstile: turnstile.token }),
       });
       const data = await res.json().catch(() => ({}));
       noteQuota(data);
@@ -145,7 +146,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
       setLoading(false);
       turnstile.reset();
     }
-  }, [source, where, niche, size, svc, count, channel, turnstile, licenseKey]);
+  }, [source, noSiteOnly, where, niche, size, svc, count, channel, turnstile, licenseKey]);
 
   // updates are keyed on a stable row id, never on array index — the list can be
   // prepended to or filtered while the request is in flight
@@ -259,6 +260,12 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
           </div>
           {source === "reddit" && <div className="me-note" style={{ marginTop: 8 }}>Finds this week's public Reddit posts from people hiring for your service. Location and company size don't apply. Browse everything for free on <a href="/leads">Fresh leads</a>.</div>}
           {source === "maps" && <div className="me-note" style={{ marginTop: 8 }}>Local businesses from map listings in one city, with phone and website where listed. Businesses with <b>no website</b> come first — perfect for web, SEO and design. Type a <b>city</b> under "Where are your clients?".</div>}
+          {source === "maps" && (
+            <label className="toggle">
+              <input type="checkbox" checked={noSiteOnly} onChange={(e) => setNoSiteOnly(e.target.checked)} />
+              <span><b>No website yet only</b> — small businesses with no site, or just a Facebook/Instagram page</span>
+            </label>
+          )}
         </div>
 
         <div className="field">
@@ -382,6 +389,9 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
                     {L.email && <span><Mail size={12} /><a href={"mailto:" + L.email}>{L.email}</a></span>}
                     {L.phone && <span><Phone size={12} /><a href={"tel:" + L.phone.replace(/\s+/g, "")}>{L.phone}</a></span>}
                     {L.linkedin && <span><Linkedin size={12} /><a href={L.linkedin.startsWith("http") ? L.linkedin : "https://" + L.linkedin} target="_blank" rel="noopener nofollow">LinkedIn</a></span>}
+                    {L.social && <span><ExternalLink size={12} /><a href={L.social} target="_blank" rel="noopener nofollow">social page</a></span>}
+                    {L.kind === "maps" && !L.website && <span className="nosite">{L.social ? "no real website" : "no website"}</span>}
+                    {L.kind === "maps" && L.source && <span><MapPin size={12} /><a href={L.source} target="_blank" rel="noopener nofollow">map listing</a></span>}
                   </div>
                 </div>
                 <div className="score"><div className="n" style={{ color: scoreColor(L.fit_score) }}>{L.fit_score}</div><div className="l">fit</div></div>
