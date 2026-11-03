@@ -164,7 +164,7 @@ export function FeedBoard({ items, name }) {
                   <span>via {x.source}</span>
                   <span>{x.category}</span>
                   {x.location && <span>{x.location}</span>}
-                  <span>{ago(x.posted)}</span>
+                  {x.posted && <span>{ago(x.posted)}</span>}
                   {x.salary && <span className="budget">{x.salary}</span>}
                 </div>
               </div>

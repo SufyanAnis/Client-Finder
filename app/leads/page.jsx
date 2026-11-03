@@ -2,7 +2,7 @@ import { Page } from "../../components/SiteChrome";
 import { Breadcrumbs, JsonLd, ToolCta, fmtDate } from "../../components/Content";
 import { RedditBoard, DiscordBoard, FeedBoard, ShareBar } from "../../components/LeadsBoard";
 import AdSlot from "../../components/AdSlot";
-import { getRedditBoard, getDiscordBoard, getFeedsBoard, safe } from "../../lib/board";
+import { getRedditBoard, getDiscordBoard, getFeedsBoard, getLinkedInBoard, safe } from "../../lib/board";
 import { SITE, ADS, absUrl } from "../../lib/site";
 
 // Rendered per request from the data cache (lib/board.js), so a build-time fetch
@@ -17,21 +17,23 @@ export const metadata = {
 };
 
 export default async function LeadsPage() {
-  const [reddit, discord, feeds] = await Promise.all([safe(getRedditBoard), safe(getDiscordBoard), safe(getFeedsBoard)]);
+  const [reddit, discord, feeds, linkedin] = await Promise.all([safe(getRedditBoard), safe(getDiscordBoard), safe(getFeedsBoard), safe(getLinkedInBoard)]);
+  const lCount = linkedin ? linkedin.items.length : 0;
   const hCount = feeds ? feeds.hn.length : 0;
   const jCount = feeds ? feeds.remote.length : 0;
   const rCount = reddit ? reddit.cats.reduce((n, c) => n + c.posts.length, 0) : 0;
   const dCount = discord ? discord.posts.length : 0;
-  const shareText = `Fresh freelance leads — ${rCount + dCount + hCount + jCount} people and companies hiring right now, free on ${SITE.name}:`;
+  const shareText = `Fresh freelance leads — ${rCount + dCount + hCount + jCount + lCount} people and companies hiring right now, free on ${SITE.name}:`;
 
   return (
     <Page>
       <Breadcrumbs items={[{ name: "Fresh leads", href: "/leads" }]} />
       <header className="page-head">
         <h1>Fresh freelance <em>leads.</em></h1>
-        <p>People posting that they want to hire a freelancer — collected from public Reddit posts, Hacker News, remote job boards and Discord job channels, refreshed automatically. Free to browse, export and share.</p>
+        <p>People posting that they want to hire a freelancer — collected from public Reddit posts, LinkedIn jobs, Hacker News, remote job boards and Discord job channels, refreshed automatically. Free to browse, export and share.</p>
         <div className="pills" style={{ marginTop: 16 }}>
           <a href="#reddit" className="tagpill">Reddit · {rCount}</a>
+          <a href="#linkedin" className="tagpill">LinkedIn · {lCount}</a>
           <a href="#hackernews" className="tagpill">Hacker News · {hCount}</a>
           <a href="#remote" className="tagpill">Remote job boards · {jCount}</a>
           <a href="#discord" className="tagpill">Discord · {dCount}</a>
@@ -49,6 +51,15 @@ export default async function LeadsPage() {
           <div className="pipe-empty">The Reddit list is refreshing — check back in a few minutes.</div>
         )}
         <p className="fine">Posts are public Reddit threads, newest first. Reply on Reddit following each subreddit's rules — most allow replies to [Hiring] posts but ban unsolicited DMs.</p>
+      </section>
+
+      <section id="linkedin" className="board-sec">
+        <div className="sec-head">
+          <h2>LinkedIn <span className="count">FREELANCE &amp; CONTRACT JOBS · THIS WEEK</span></h2>
+          {linkedin?.updated && <span className="fine">Updated {fmtDate(linkedin.updated.slice(0, 10))}</span>}
+        </div>
+        {linkedin ? <FeedBoard items={linkedin.items} name="linkedin" /> : <div className="pipe-empty">Refreshing — check back in a few minutes.</div>}
+        <p className="fine">Public LinkedIn job posts for freelance, contract and part-time work, newest first. Staffing agencies and job aggregators are filtered out. Apply on LinkedIn, or reach the company directly with a short, specific pitch.</p>
       </section>
 
       <section id="hackernews" className="board-sec">
