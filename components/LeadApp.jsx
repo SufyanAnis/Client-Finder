@@ -10,10 +10,11 @@ import {
 import * as XLSX from "xlsx";
 import CopyButton from "./CopyButton";
 import Paywall, { readKey, saveKey } from "./Paywall";
+import { BUSINESS_TYPES } from "../lib/places";
 import { SERVICE_IDS, GEOS, SIZES } from "../lib/services";
 
 const CHANNELS = [{ id: "Email", icon: Mail }, { id: "LinkedIn", icon: Linkedin }, { id: "WhatsApp", icon: MessageCircle }];
-const SOURCES = [{ id: "companies", label: "Companies (job posts, funding, launches)" }, { id: "reddit", label: "Reddit [Hiring] posts" }];
+const SOURCES = [{ id: "companies", label: "Companies (job posts, funding, launches)" }, { id: "reddit", label: "Reddit [Hiring] posts" }, { id: "maps", label: "Local businesses (map)" }];
 const LOADING = ["Scanning the open web...", "Shortlisting real companies...", "Reading buying signals...", "Scoring fit..."];
 const STORE_KEY = "fmc_pipeline_v1";
 const LEGACY_KEY = "swiftlabs_pipeline_v1";
@@ -29,7 +30,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 // paywallOn: whether searches need credits after the free one (set by the server
 // from whether payments are configured). Off = free daily limits.
-export default function LeadApp({ paywallOn = false }) {
+export default function LeadApp({ paywallOn = false, mapsOn = false }) {
   const [service, setService] = useState(SERVICE_IDS[0]);
   const [customService, setCustomService] = useState("");
   const [geo, setGeo] = useState(GEOS[0]);
@@ -242,7 +243,9 @@ export default function LeadApp({ paywallOn = false }) {
     XLSX.writeFile(wb, `findmyclients-leads-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  const counts = owner ? [3, 5, 8] : [3, 5];
+  const counts = source === "maps" ? [10, 20] : owner ? [3, 5, 8] : [3, 5];
+  // keep the selected count valid when switching source
+  useEffect(() => { if (!counts.includes(count)) setCount(counts[0]); }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -250,11 +253,12 @@ export default function LeadApp({ paywallOn = false }) {
         <div className="field">
           <div className="label"><Radar size={13} />Where to look</div>
           <div className="chips">
-            {SOURCES.map((s) => (
+            {SOURCES.filter((s) => s.id !== "maps" || mapsOn).map((s) => (
               <button key={s.id} type="button" className={"chip" + (source === s.id ? " on" : "")} onClick={() => setSource(s.id)}>{s.label}</button>
             ))}
           </div>
           {source === "reddit" && <div className="me-note" style={{ marginTop: 8 }}>Finds this week's public Reddit posts from people hiring for your service. Location and company size don't apply. Browse everything for free on <a href="/leads">Fresh leads</a>.</div>}
+          {source === "maps" && <div className="me-note" style={{ marginTop: 8 }}>Local businesses from map listings in one city, with phone and website where listed. Businesses with <b>no website</b> come first — perfect for web, SEO and design. Type a <b>city</b> under "Where are your clients?".</div>}
         </div>
 
         <div className="field">
@@ -285,8 +289,15 @@ export default function LeadApp({ paywallOn = false }) {
 
         <div className="row">
           <div className="field">
-            <div className="label"><Building2 size={13} />Industry / niche (optional)</div>
-            <input className="inp" value={niche} maxLength={120} placeholder="e.g. dental clinics, fintech, restaurants, SaaS..." onChange={(e) => setNiche(e.target.value)} />
+            <div className="label"><Building2 size={13} />{source === "maps" ? "Type of business" : "Industry / niche (optional)"}</div>
+            {source === "maps" && (
+              <div className="chips" style={{ marginBottom: 9 }}>
+                {BUSINESS_TYPES.map((b) => (
+                  <button key={b.id} type="button" className={"chip" + (niche === b.label ? " on" : "")} onClick={() => setNiche(b.label)}>{b.label}</button>
+                ))}
+              </div>
+            )}
+            <input className="inp" value={niche} maxLength={120} placeholder={source === "maps" ? "Pick one above" : "e.g. dental clinics, fintech, restaurants, SaaS..."} onChange={(e) => setNiche(e.target.value)} />
           </div>
           <div className="field">
             <div className="label"><Target size={13} />Company size</div>
@@ -389,7 +400,7 @@ export default function LeadApp({ paywallOn = false }) {
                     {L.drafting ? <><Loader2 className="spin" size={15} /> Drafting...</> : <><Sparkles size={15} /> {L.draftError ? "Retry draft" : L.kind === "reddit" ? "Draft Reddit reply" : `Draft ${channel}`}</>}
                   </button>
                 )}
-                {L.kind !== "reddit" && !L.looked && (!L.email || !L.phone) && (
+                {!L.kind && !L.looked && (!L.email || !L.phone) && (
                   <button className="btn" onClick={() => lookupContact(L._id)} disabled={L.looking}>
                     {L.looking ? <><Loader2 className="spin" size={15} /> Looking...</> : <><ContactRound size={15} /> Find contact</>}
                   </button>

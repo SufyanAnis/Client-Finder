@@ -18,6 +18,43 @@ import { refund } from "../../../lib/ratelimit";
 import { isOwner, verifyTurnstile, CAPACITY_MESSAGE } from "../../../lib/guard";
 import { enrichContacts } from "../../../lib/enrich";
 import { findHiringPosts, redditQueries } from "../../../lib/reddit";
+import { placesProvider, searchPlaces, findType } from "../../../lib/places";
+import { GEOS } from "../../../lib/services";
+
+// Services for which "no website on the map listing" is the pitch.
+const WEB_SERVICES = /web|seo|design|brand|social|marketing|app|copy|content/i;
+
+// Map mode: local businesses from Google Places or OpenStreetMap (via Geoapify).
+// Everything shown comes straight from the listing — no AI involved.
+async function mapLeads({ service, niche, city, n }) {
+  const type = findType(niche);
+  const places = await searchPlaces({ type, query: niche, city, limit: n });
+  const webPitch = WEB_SERVICES.test(service);
+  return places
+    .map((p) => {
+      const noSite = !p.website;
+      const score = webPitch ? (noSite ? 90 : 60) : 70;
+      const reviews = p.reviews ? `${p.rating ?? "?"}★ from ${p.reviews} reviews` : "";
+      return {
+        kind: "maps",
+        company: p.name,
+        website: p.website,
+        location: p.address,
+        fit_score: score,
+        why_fit: noSite
+          ? `No website on their map listing — ${webPitch ? "a clear opening for " + service.toLowerCase() : "likely an under-served local business"}.`
+          : `Local ${(type?.label || niche).toLowerCase()} business${reviews ? " with " + reviews : ""}.`,
+        signal: noSite ? "No website listed on the map" : reviews ? `Listed on ${p.source} — ${reviews}` : `Listed on ${p.source}`,
+        source: p.url,
+        contact_role: "Owner / manager",
+        email: p.email,
+        phone: p.phone,
+        linkedin: "",
+      };
+    })
+    .sort((a, b) => b.fit_score - a.fit_score)
+    .slice(0, n);
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // web search + generation can take a while; Hobby allows up to 60s
@@ -89,7 +126,7 @@ export async function POST(req) {
 
   let body;
   try { body = await req.json(); } catch { return Response.json({ error: "Bad request." }, { status: 400 }); }
-  const source = body?.source === "reddit" ? "reddit" : "companies";
+  const source = ["reddit", "maps"].includes(body?.source) ? body.source : "companies";
   const service = clip(body?.service, 80);
   const geo = clip(body?.geo, 80);
   const niche = clip(body?.niche, 120);
@@ -97,8 +134,14 @@ export async function POST(req) {
   if (!service || !geo) return Response.json({ error: "Pick a service and a location first." }, { status: 400 });
 
   const owner = await isOwner();
-  const maxN = owner ? 8 : 5;
+  // Map results are cheap (no AI, one API call), so a search returns more of them.
+  const maxN = source === "maps" ? 20 : owner ? 8 : 5;
   const n = Math.min(Math.max(parseInt(body?.count, 10) || 5, 1), maxN);
+  if (source === "maps") {
+    if (!placesProvider()) return Response.json({ error: "Map search is coming soon — try Companies or Reddit for now." }, { status: 503 });
+    if (!niche) return Response.json({ error: "Pick the type of business you want (e.g. Dentists)." }, { status: 400 });
+    if (GEOS.includes(geo)) return Response.json({ error: "For map search, type a city (e.g. Karachi, Dubai, Manchester) instead of a country." }, { status: 400 });
+  }
 
   // Same targeting within the cache window → same answer, free for everyone.
   const cacheKey = "leads:" + [source, service, geo, niche, size, n].map((s) => String(s).toLowerCase()).join("|");
@@ -149,6 +192,17 @@ export async function POST(req) {
     if (mode === "daily") await refund("search", vid);
     return Response.json(payload, { status });
   };
+
+  if (source === "maps") {
+    try {
+      const leads = await mapLeads({ service, niche, city: geo, n });
+      if (!leads.length) return fail(502, { error: `No ${niche.toLowerCase()} found on the map in ${geo}. Try a bigger city or another business type.` });
+      await cacheSet(cacheKey, leads, 60 * 60 * 24);
+      return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
+    } catch (err) {
+      return fail(502, { error: err?.message || "Map search failed." });
+    }
+  }
 
   if (source === "reddit") {
     try {

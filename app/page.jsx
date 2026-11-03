@@ -1,6 +1,7 @@
 import Link from "next/link";
 import LeadApp from "../components/LeadApp";
 import { paywallEnabled } from "../lib/credits";
+import { placesProvider } from "../lib/places";
 import { Page } from "../components/SiteChrome";
 import { Faqs, JsonLd } from "../components/Content";
 import { CardGrid } from "../components/Related";
@@ -55,7 +56,7 @@ export default function Home() {
         </p>
       </header>
 
-      <LeadApp paywallOn={paywallEnabled()} />
+      <LeadApp paywallOn={paywallEnabled()} mapsOn={!!placesProvider()} />
 
       <section className="home-sec">
         <h2>How it works</h2>
