@@ -5,7 +5,9 @@ import AdSlot from "../../components/AdSlot";
 import { getRedditBoard, getDiscordBoard, getFeedsBoard, safe } from "../../lib/board";
 import { SITE, ADS, absUrl } from "../../lib/site";
 
-export const revalidate = 3600;
+// Rendered per request from the data cache (lib/board.js), so a build-time fetch
+// failure can never freeze an empty page; the sources themselves refresh on their own schedule.
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Fresh freelance leads — Reddit, Hacker News, remote job boards",
