@@ -17,6 +17,7 @@ import { spendCredit, refundCredit, getBalance, paywallEnabled } from "../../../
 import { refund } from "../../../lib/ratelimit";
 import { isOwner, verifyTurnstile, CAPACITY_MESSAGE } from "../../../lib/guard";
 import { enrichContacts } from "../../../lib/enrich";
+import { findHiringPosts, redditQueries } from "../../../lib/reddit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // web search + generation can take a while; Hobby allows up to 60s
@@ -88,6 +89,7 @@ export async function POST(req) {
 
   let body;
   try { body = await req.json(); } catch { return Response.json({ error: "Bad request." }, { status: 400 }); }
+  const source = body?.source === "reddit" ? "reddit" : "companies";
   const service = clip(body?.service, 80);
   const geo = clip(body?.geo, 80);
   const niche = clip(body?.niche, 120);
@@ -99,7 +101,7 @@ export async function POST(req) {
   const n = Math.min(Math.max(parseInt(body?.count, 10) || 5, 1), maxN);
 
   // Same targeting within the cache window → same answer, free for everyone.
-  const cacheKey = "leads:" + [service, geo, niche, size, n].map((s) => String(s).toLowerCase()).join("|");
+  const cacheKey = "leads:" + [source, service, geo, niche, size, n].map((s) => String(s).toLowerCase()).join("|");
   const cached = await cacheGet(cacheKey);
 
   // Who pays for this search: the owner (nobody), a license key (one credit), or
@@ -147,6 +149,17 @@ export async function POST(req) {
     if (mode === "daily") await refund("search", vid);
     return Response.json(payload, { status });
   };
+
+  if (source === "reddit") {
+    try {
+      const leads = await redditLeads({ service, niche, n });
+      if (!leads.length) return fail(502, { error: "No fresh [Hiring] posts on Reddit for this right now — try a broader service or check the Fresh leads page." });
+      await cacheSet(cacheKey, leads, 60 * 60 * 3);
+      return Response.json({ leads, owner, balance, trial: mode === "trial", paywall });
+    } catch (err) {
+      return fail(500, { error: "Reddit search failed: " + (err?.message || "unknown") });
+    }
+  }
 
   try {
     // Providers without native search (Groq) need an external search first.
@@ -209,4 +222,41 @@ export async function POST(req) {
   } catch (err) {
     return fail(500, { error: "Request failed: " + (err?.message || "unknown") });
   }
+}
+
+// Reddit mode: public [Hiring] posts (2 web searches), then a cheap AI pass that
+// only SCORES each post's title against the service — titles, subreddits and
+// links come straight from the search results, so nothing is invented.
+async function redditLeads({ service, niche, n }) {
+  const posts = (await findHiringPosts(redditQueries(service, niche))).slice(0, Math.max(n * 2, 8));
+  if (!posts.length) return [];
+  const list = posts.map((p, i) => `${i}. [r/${p.subreddit}] ${p.title}`).join("\n");
+  const prompt = `A freelancer offering "${service}"${niche ? ` (niche: ${niche})` : ""} wants clients. Below are Reddit posts from people hiring. For each, judge how well it matches the freelancer's service.
+Return ONLY a JSON array, one object per post: {"i": number, "fit_score": 0-100, "why": "one short sentence on what the poster needs"}. Base it only on the title; do not invent details.
+${list}`;
+  let scores = [];
+  try {
+    const r = await generate({ prompt, maxTokens: 1200, fast: true });
+    const a = r.text?.indexOf("["), b = r.text?.lastIndexOf("]");
+    if (r.ok && a > -1 && b > a) scores = JSON.parse(r.text.slice(a, b + 1));
+  } catch {}
+  const byI = new Map((Array.isArray(scores) ? scores : []).map((x) => [Number(x.i), x]));
+  return posts
+    .map((p, i) => {
+      const sc = byI.get(i) || {};
+      return {
+        kind: "reddit",
+        company: p.title,
+        website: "",
+        location: "r/" + p.subreddit,
+        fit_score: Math.min(Math.max(Math.round(Number(sc.fit_score)) || 55, 0), 100),
+        why_fit: typeof sc.why === "string" ? sc.why : "",
+        signal: "Posted on r/" + p.subreddit + " this week" + (p.budget ? " — budget " + p.budget : ""),
+        source: p.url,
+        contact_role: "Reddit poster — reply on the post",
+        email: "", phone: "", linkedin: "",
+      };
+    })
+    .sort((a, b) => b.fit_score - a.fit_score)
+    .slice(0, n);
 }

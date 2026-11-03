@@ -13,6 +13,7 @@ import Paywall, { readKey, saveKey } from "./Paywall";
 import { SERVICE_IDS, GEOS, SIZES } from "../lib/services";
 
 const CHANNELS = [{ id: "Email", icon: Mail }, { id: "LinkedIn", icon: Linkedin }, { id: "WhatsApp", icon: MessageCircle }];
+const SOURCES = [{ id: "companies", label: "Companies (job posts, funding, launches)" }, { id: "reddit", label: "Reddit [Hiring] posts" }];
 const LOADING = ["Scanning the open web...", "Shortlisting real companies...", "Reading buying signals...", "Scoring fit..."];
 const STORE_KEY = "fmc_pipeline_v1";
 const LEGACY_KEY = "swiftlabs_pipeline_v1";
@@ -36,6 +37,7 @@ export default function LeadApp({ paywallOn = false }) {
   const [niche, setNiche] = useState("");
   const [size, setSize] = useState(SIZES[0]);
   const [channel, setChannel] = useState("Email");
+  const [source, setSource] = useState("companies");
   const [count, setCount] = useState(5);
   const [me, setMe] = useState({ name: "", business: "", offer: "" });
   const [meOpen, setMeOpen] = useState(false);
@@ -116,7 +118,7 @@ export default function LeadApp({ paywallOn = false }) {
     try {
       const res = await fetch("/api/find-leads", {
         method: "POST", headers: headers(),
-        body: JSON.stringify({ geo: where, niche, size, service: svc, count, turnstile: turnstile.token }),
+        body: JSON.stringify({ source, geo: where, niche, size, service: svc, count, turnstile: turnstile.token }),
       });
       const data = await res.json().catch(() => ({}));
       noteQuota(data);
@@ -132,7 +134,7 @@ export default function LeadApp({ paywallOn = false }) {
       // so later saves/drafts don't pick up whatever the chips say at that moment
       setRan({ geo: where });
       setLeads((data.leads || []).map((p) => ({
-        ...p, _id: crypto.randomUUID(), service: svc, channel, message: null, drafting: false, draftError: false,
+        ...p, _id: crypto.randomUUID(), service: svc, channel: p.kind === "reddit" ? "Reddit" : channel, message: null, drafting: false, draftError: false,
       })));
     } catch (err) {
       setError(err.code === "limit" || err.code === "capacity" || err.code === "turnstile"
@@ -142,7 +144,7 @@ export default function LeadApp({ paywallOn = false }) {
       setLoading(false);
       turnstile.reset();
     }
-  }, [where, niche, size, svc, count, channel, turnstile, licenseKey]);
+  }, [source, where, niche, size, svc, count, channel, turnstile, licenseKey]);
 
   // updates are keyed on a stable row id, never on array index — the list can be
   // prepended to or filtered while the request is in flight
@@ -154,7 +156,7 @@ export default function LeadApp({ paywallOn = false }) {
     if (!L) return;
     // a card draft follows the currently selected channel chip (matching the button label);
     // a pipeline row keeps the channel it was saved with
-    const useChannel = target === "leads" ? channel : (L.channel || channel);
+    const useChannel = L.kind === "reddit" || L.channel === "Reddit" ? "Reddit" : target === "leads" ? channel : (L.channel || channel);
     setList((xs) => xs.map((x) => (x[idKey] === rowId ? { ...x, drafting: true, draftError: false } : x)));
     try {
       const res = await fetch("/api/draft", {
@@ -245,6 +247,16 @@ export default function LeadApp({ paywallOn = false }) {
   return (
     <>
       <div className="panel" id="finder">
+        <div className="field">
+          <div className="label"><Radar size={13} />Where to look</div>
+          <div className="chips">
+            {SOURCES.map((s) => (
+              <button key={s.id} type="button" className={"chip" + (source === s.id ? " on" : "")} onClick={() => setSource(s.id)}>{s.label}</button>
+            ))}
+          </div>
+          {source === "reddit" && <div className="me-note" style={{ marginTop: 8 }}>Finds this week's public Reddit posts from people hiring for your service. Location and company size don't apply. Browse everything for free on <a href="/leads">Fresh leads</a>.</div>}
+        </div>
+
         <div className="field">
           <div className="label"><Sparkles size={13} />What do you sell?</div>
           <div className="chips">
@@ -374,10 +386,10 @@ export default function LeadApp({ paywallOn = false }) {
               <div className="actions">
                 {!L.message && (
                   <button className="btn" onClick={() => draftMessage(L._id, "leads")} disabled={L.drafting}>
-                    {L.drafting ? <><Loader2 className="spin" size={15} /> Drafting...</> : <><Sparkles size={15} /> {L.draftError ? "Retry draft" : `Draft ${channel}`}</>}
+                    {L.drafting ? <><Loader2 className="spin" size={15} /> Drafting...</> : <><Sparkles size={15} /> {L.draftError ? "Retry draft" : L.kind === "reddit" ? "Draft Reddit reply" : `Draft ${channel}`}</>}
                   </button>
                 )}
-                {!L.looked && (!L.email || !L.phone) && (
+                {L.kind !== "reddit" && !L.looked && (!L.email || !L.phone) && (
                   <button className="btn" onClick={() => lookupContact(L._id)} disabled={L.looking}>
                     {L.looking ? <><Loader2 className="spin" size={15} /> Looking...</> : <><ContactRound size={15} /> Find contact</>}
                   </button>

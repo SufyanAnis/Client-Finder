@@ -1,3 +1,4 @@
+:root{ --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif; --f-body:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace; }
 /* ===== public site: nav, content pages, cards, ads, footer ===== */
 a.brand{ text-decoration:none; color:inherit; }
 .wrap-narrow{ max-width:780px; }
@@ -224,3 +225,22 @@ a.kicker{ text-decoration:none; display:inline-block; }
 .keybox{ margin:22px 0 10px; padding:20px; border-radius:14px; border:1px dashed var(--gold-dim); background:var(--panel); display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
 .keybox .label{ flex-basis:100%; margin:0; }
 .keybox-k{ font-family:var(--f-mono); font-size:clamp(18px,4vw,26px); letter-spacing:.06em; color:var(--gold); word-break:break-all; }
+
+/* ===== fresh leads board ===== */
+.sharebar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0 10px; }
+.sharebar .btn{ text-decoration:none; padding:8px 12px; font-size:13px; }
+.board-sec{ margin-top:40px; scroll-margin-top:80px; }
+.board-sec h2{ font-family:var(--f-display); font-weight:700; font-size:26px; letter-spacing:-.02em; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.board-tools{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin:14px 0; }
+.leadlist{ border:1px solid var(--line); border-radius:14px; overflow:hidden; background:linear-gradient(180deg,var(--panel),#0e0e11); }
+.leadrow{ display:flex; gap:14px; justify-content:space-between; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--line); }
+.leadrow:last-child{ border-bottom:0; }
+.leadrow-main{ min-width:0; flex:1; }
+.leadrow-t{ color:var(--text); font-weight:600; font-size:15px; line-height:1.45; text-decoration:none; }
+.leadrow-t:hover{ color:var(--gold); }
+.leadrow-text{ color:#d4d4d8; font-size:14px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.leadrow-meta{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:6px; font-family:var(--f-mono); font-size:11.5px; color:var(--faint); }
+.leadrow-meta .budget{ color:var(--green); }
+.leadrow-act{ display:flex; flex-direction:column; gap:8px; align-items:flex-end; flex-shrink:0; }
+.leadrow-act a.linkbtn{ text-decoration:none; }
+@media(max-width:600px){ .leadrow{ flex-direction:column; } .leadrow-act{ flex-direction:row; align-items:center; } }

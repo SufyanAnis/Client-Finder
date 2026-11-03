@@ -8,6 +8,7 @@ export default function sitemap() {
   });
   return [
     at("/", 1, "weekly"),
+    at("/leads", 0.9, "daily"),
     at("/blog", 0.9, "daily"),
     at("/guides", 0.8, "weekly"),
     at("/templates", 0.8, "weekly"),

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SITE } from "../lib/site";
 
 const NAV = [
+  { href: "/leads", label: "Fresh leads" },
   { href: "/blog", label: "Blog" },
   { href: "/guides", label: "Guides" },
   { href: "/templates", label: "Templates" },
@@ -65,6 +66,7 @@ export function SiteFooter() {
         <div>
           <div className="foot-h">Tool</div>
           <Link href="/#finder">Lead finder</Link>
+          <Link href="/leads">Fresh leads (Reddit &amp; Discord)</Link>
           <Link href="/find-clients">Find clients by profession</Link>
           <Link href="/templates">Outreach templates</Link>
           <Link href="/tools/freelance-rate-calculator">Rate calculator</Link>
