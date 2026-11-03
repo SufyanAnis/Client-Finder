@@ -26,7 +26,9 @@ export async function POST(req) {
     if (!q.ok) return Response.json({ error: `Daily limit of ${DAILY_CAP} new emails reached — keeps your Gmail out of spam. Resets at midnight UTC.` }, { status: 429 });
   }
   try {
-    const sent = await sendEmail({ to, subject: b.subject || "", body: b.body, fromName: b.fromName || "", threadId: b.threadId || "", inReplyTo: b.inReplyTo || "" });
+    // optional CV attachment (base64), capped well under Vercel's 4.5 MB request limit
+    const att = b?.attachment?.base64 && String(b.attachment.base64).length < 3_000_000 ? b.attachment : null;
+    const sent = await sendEmail({ to, subject: b.subject || "", body: b.body, fromName: b.fromName || "", threadId: b.threadId || "", inReplyTo: b.inReplyTo || "", attachment: att });
     return Response.json({ ok: true, ...sent, sentAt: new Date().toISOString() });
   } catch (e) {
     return Response.json({ error: e.message, code: e.code }, { status: e.code === "not_connected" ? 412 : 502 });

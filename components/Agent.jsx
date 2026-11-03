@@ -9,6 +9,7 @@ import CopyButton from "./CopyButton";
 const KEY = "fmc_agent_v1";
 const INBOX = "fmc_agent_inbox"; // items sent here from the Fresh leads board
 const PIPE = "fmc_pipeline_v1";
+const CV_KEY = "fmc_agent_cv"; // { filename, mimeType, base64 } — kept apart, it's large
 const DAY = 86400000;
 
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
@@ -40,6 +41,8 @@ export default function Agent() {
   const [gmail, setGmail] = useState(null);
   const [busy, setBusy] = useState({});
   const [msg, setMsg] = useState("");
+  const [cv, setCv] = useState(null);
+  const [picked, setPicked] = useState({}); // lead ids ticked for batch sending
 
   useEffect(() => {
     const s = load(KEY, { profile: {}, leads: [] });
@@ -51,6 +54,7 @@ export default function Agent() {
       save(INBOX, []);
     }
     setSt(s); setReady(true);
+    setCv(load(CV_KEY, null));
     try { localStorage.setItem("fmc_owner", "1"); } catch {}
     fetch("/api/gmail/status").then((r) => r.json()).then(setGmail).catch(() => setGmail({ app: false }));
   }, []);
@@ -69,13 +73,21 @@ export default function Agent() {
   async function draft(l, type) {
     flag(l.id, "draft"); setMsg("");
     try {
-      const d = await post("/api/agent/draft", { type: type || (l.kind === "email" ? "email" : l.kind), lead: l, profile: st.profile, research: l.research, skipResearch: !!l.research, thread: l.messages || [] });
+      const d = await post("/api/agent/draft", { type: type || (l.kind === "email" ? (l.applyByEmail ? "apply" : "email") : l.kind), lead: l, profile: { ...st.profile, hasCv: !!cv }, research: l.research, skipResearch: !!l.research, thread: l.messages || [] });
       if (d.skip) { upd(l.id, { status: "stopped", skipReason: d.skip, research: d.research }); setMsg(`Skipped ${l.company || host(l.website)}: ${d.skip}`); flag(l.id, false); return; }
-      const to = l.email || d.research?.emails?.[0] || "";
+      const applyEmail = l.kind === "apply" ? d.research?.applyEmail || "" : "";
+      const to = l.email || applyEmail || d.research?.emails?.[0] || "";
       if (["followup", "response"].includes(type)) upd(l.id, { pending: { type, subject: d.subject, body: d.body } });
-      else upd(l.id, { status: "drafted", research: d.research, email: to, draft: { subject: d.subject, body: d.body, to }, kind: l.kind === "apply" || l.kind === "reply" ? l.kind : to ? "email" : l.url ? "apply" : "email" });
+      else upd(l.id, { status: "drafted", research: d.research, email: to, draft: { subject: d.subject, body: d.body, to }, kind: applyEmail ? "email" : l.kind === "apply" || l.kind === "reply" ? l.kind : to ? "email" : l.url ? "apply" : "email", applyByEmail: l.applyByEmail || !!applyEmail });
     } catch (e) { setMsg(`${l.company || host(l.website)}: ${e.message}`); }
     flag(l.id, false);
+  }
+
+  async function sendPicked() {
+    const list = queue.filter((l) => picked[l.id] && l.status === "drafted" && l.kind === "email" && l.draft?.to);
+    for (const l of list) await sendEmail(l, l.draft);
+    setPicked({});
+    setMsg(`Sent ${list.length} email${list.length === 1 ? "" : "s"}.`);
   }
 
   async function draftAll() {
@@ -85,7 +97,8 @@ export default function Agent() {
   async function sendEmail(l, { subject, body, to, threadId, inReplyTo, followup }) {
     flag(l.id, "send"); setMsg("");
     try {
-      const r = await post("/api/agent/send", { to, subject, body, fromName: st.profile.name || "", threadId, inReplyTo });
+      const attachment = l.applyByEmail && !threadId && cv ? cv : null;
+      const r = await post("/api/agent/send", { to, subject, body, fromName: st.profile.name || "", threadId, inReplyTo, attachment });
       const msgRec = { fromMe: true, date: r.sentAt, text: body, messageId: r.messageId };
       upd(l.id, (x) => ({
         status: followup === "response" ? "replied" : "sent", threadId: r.threadId, messageId: r.messageId,
@@ -214,6 +227,22 @@ export default function Agent() {
               <label key={k} className="calc-f"><span className="label">{label}</span><input className="inp" value={p[k] || ""} placeholder={ph} onChange={(e) => setProfile(k, e.target.value)} /></label>
             ))}
           </div>
+          <div className="label" style={{ marginTop: 18 }}>CV / portfolio PDF (attached to job applications sent by email)</div>
+          {cv ? (
+            <div className="fine">📎 {cv.filename} <button className="linkbtn" style={{ display: "inline-flex" }} onClick={() => { setCv(null); try { localStorage.removeItem(CV_KEY); } catch {} }}>remove</button></div>
+          ) : (
+            <input type="file" accept=".pdf,.doc,.docx" className="inp" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (file.size > 2_000_000) { setMsg("CV must be under 2 MB."); return; }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const v = { filename: file.name, mimeType: file.type || "application/pdf", base64: String(reader.result).split(",")[1] };
+                setCv(v); save(CV_KEY, v);
+              };
+              reader.readAsDataURL(file);
+            }} />
+          )}
           <p className="fine">Saved in this browser. The agent never invents clients or results — it only uses what you write here.</p>
         </div>
       )}
@@ -224,7 +253,10 @@ export default function Agent() {
         <>
           <div className="board-tools">
             <span className="count">{queue.filter((l) => l.status === "new").length} TO DRAFT · {queue.filter((l) => l.status === "drafted").length} READY</span>
-            <button className="btn" onClick={draftAll} disabled={!queue.some((l) => l.status === "new") || Object.values(busy).some(Boolean)}><Sparkles size={15} /> Research & draft next 10</button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn" onClick={draftAll} disabled={!queue.some((l) => l.status === "new") || Object.values(busy).some(Boolean)}><Sparkles size={15} /> Research & draft next 10</button>
+              {gmail?.connected && <button className="btn export" onClick={sendPicked} disabled={!Object.values(picked).some(Boolean) || Object.values(busy).some(Boolean)}><Send size={15} /> Send selected ({Object.values(picked).filter(Boolean).length})</button>}
+            </div>
           </div>
           {queue.length === 0 && <div className="pipe-empty">Nothing in the queue. Add leads from the <a href="/leads">Fresh leads</a> page (→ agent buttons), your pipeline, or paste websites in <b>Add leads</b>.</div>}
           {queue.map((l) => (
@@ -240,8 +272,14 @@ export default function Agent() {
                     {l.research?.team?.[0] && <span>👤 {l.research.team[0].name}</span>}
                   </div>
                 </div>
-                <button className="del" onClick={() => remove(l.id)} title="Remove"><Trash2 size={15} /></button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {gmail?.connected && l.status === "drafted" && l.kind === "email" && l.draft?.to && (
+                    <label className="toggle" style={{ margin: 0 }} title="Include in 'Send selected'"><input type="checkbox" checked={!!picked[l.id]} onChange={(e) => setPicked((p) => ({ ...p, [l.id]: e.target.checked }))} /></label>
+                  )}
+                  <button className="del" onClick={() => remove(l.id)} title="Remove"><Trash2 size={15} /></button>
+                </div>
               </div>
+              {l.applyByEmail && <div className="fine" style={{ color: "var(--green)" }}>✓ Application email found in the post — sent as an email{cv ? " with your CV attached" : " (add your CV in Setup to attach it)"}.</div>}
               {l.title && <div className="note">{l.title}</div>}
               {l.research?.signals?.length > 0 && <div className="fine">Site issues: {l.research.signals.join(" · ")}</div>}
               {l.status === "new" ? (

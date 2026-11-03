@@ -4,7 +4,12 @@ const nextConfig = {
   poweredByHeader: false,
   async redirects() {
     // The old inbound "Request services" form became the public contact page.
-    return [{ source: "/request", destination: "/contact", permanent: true }];
+    return [
+      { source: "/request", destination: "/contact", permanent: true },
+      // personal project — nothing is sold
+      { source: "/pricing/:path*", destination: "/", permanent: false },
+      { source: "/refund-policy", destination: "/terms", permanent: false },
+    ];
   },
   async headers() {
     return [{

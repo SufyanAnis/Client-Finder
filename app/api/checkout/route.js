@@ -3,11 +3,12 @@ import { getPack, CURRENCY } from "../../../lib/plans";
 import { safepayConfigured, initOrder, checkoutUrl } from "../../../lib/safepay";
 import { paymentsStorageReady, newOrderId, saveOrder } from "../../../lib/credits";
 import { take, visitorId } from "../../../lib/ratelimit";
-import { absUrl } from "../../../lib/site";
+import { absUrl, SITE } from "../../../lib/site";
 
 export const runtime = "nodejs";
 
 export async function POST(req) {
+  if (!SITE.selling) return Response.json({ error: "Nothing is for sale here." }, { status: 404 });
   if (!safepayConfigured() || !paymentsStorageReady()) {
     return Response.json({ error: "Payments aren't switched on yet — please check back soon." }, { status: 503 });
   }

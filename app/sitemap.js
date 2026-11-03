@@ -25,8 +25,6 @@ export default function sitemap() {
     ...templates.map((t) => at(`/templates/${t.slug}`, 0.7)),
     ...glossary.map((t) => at(`/glossary/${t.slug}`, 0.5)),
     ...Object.keys(AUTHORS).map((s) => at(`/authors/${s}`, 0.4, "yearly")),
-    at("/pricing", 0.8, "monthly"),
-    at("/refund-policy", 0.2, "yearly"),
     at("/about", 0.4, "yearly"),
     at("/contact", 0.3, "yearly"),
     at("/privacy", 0.2, "yearly"),

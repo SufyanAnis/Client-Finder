@@ -50,11 +50,10 @@ export default function About() {
             <li><strong>It doesn't pretend to be perfect.</strong> AI research can be wrong or out of date. Check every lead before you reach out.</li>
           </ul>
 
-          <h2>Why the first search is free, and the rest are paid</h2>
+          <h2>Why it's free, and why there are limits</h2>
           <p>
-            Every search runs live web research and AI analysis, which costs us real money. So everyone gets one free search to
-            see what it finds, and after that searches use prepaid <Link href="/pricing">credits</Link> — no subscription, and
-            credits never expire. The <Link href="/guides">guides</Link>, <Link href="/templates">templates</Link> and free tools
+            Every search runs live web research and AI analysis, which costs us real money. So searches have a small daily limit per
+            visitor, and the site as a whole has a daily budget — nothing is for sale. The <Link href="/guides">guides</Link>, <Link href="/templates">templates</Link> and free tools
             stay free for everyone: they're the method behind the tool, and you can use them with nothing but a spreadsheet.
           </p>
 
