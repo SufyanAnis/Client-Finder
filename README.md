@@ -39,10 +39,10 @@ Every public search costs real API credits, so the site meters use:
 | Searches per visitor per day | 3 | `FREE_SEARCHES_PER_DAY` |
 | Drafts per visitor per day | 10 | `FREE_DRAFTS_PER_DAY` |
 | Contact lookups per visitor per day | 5 | `FREE_LOOKUPS_PER_DAY` |
-| Tavily credits per day, whole site | 30 | `GLOBAL_WEB_SEARCHES_PER_DAY` |
+| Tavily credits per day for visitor searches, whole site | 20 | `GLOBAL_WEB_SEARCHES_PER_DAY` |
 
 A search uses 2 Tavily credits (3 when the fallback runs); a lookup uses 1. Tavily's free plan is ~1,000
-credits/month, so 30/day is roughly the free ceiling — about 10–15 public searches a day. Identical searches
+credits/month. The /leads boards that use search (Reddit, LinkedIn, X) refresh every 2 days (~9 credits/day) and visitor searches are capped at 20 credits/day, so the total (~880/month) stays inside the free plan — nothing is ever billed. Identical searches
 are cached for 12 hours and cost nothing. Visitors are identified by a salted hash of their IP.
 Raise the caps once you pay for Tavily or ads cover it.
 
