@@ -1,6 +1,7 @@
 // Shared page frame: background, sticky nav, footer. Server component.
 import Link from "next/link";
 import { SITE } from "../lib/site";
+import OwnerLink from "./OwnerLink";
 
 const NAV = [
   { href: "/leads", label: "Fresh leads" },
@@ -32,12 +33,14 @@ export function SiteHeader() {
         </Link>
         <div className="nav-links">
           {NAV.map((n) => <Link key={n.href} className="site" href={n.href}>{n.label}</Link>)}
+          <OwnerLink />
           <Link className="nav-cta" href="/#finder">Find clients</Link>
         </div>
         <details className="nav-mobile">
           <summary aria-label="Menu">Menu</summary>
           <div className="nav-drop">
             <Link href="/#finder">Find clients</Link>
+            <OwnerLink className="" />
             {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
             <Link href="/contact">Contact</Link>
           </div>

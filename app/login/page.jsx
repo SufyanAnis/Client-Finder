@@ -21,7 +21,8 @@ export default function LoginPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Sign-in failed.");
       const next = new URLSearchParams(window.location.search).get("next");
-      window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      try { localStorage.setItem("fmc_owner", "1"); } catch {}
+      window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/agent";
     } catch (err) {
       setError(err.message || "Sign-in failed.");
       setLoading(false);
