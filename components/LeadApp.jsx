@@ -193,6 +193,7 @@ export default function LeadApp({ paywallOn = false, mapsOn = false }) {
       patch({
         looking: false, looked: true,
         email: L.email || c.email || "", phone: L.phone || c.phone || "", linkedin: L.linkedin || c.linkedin || "",
+        social: L.social || c.facebook || c.instagram || "",
         lookupNote: data.found ? "" : "No public contact found — try their website's contact page.",
       });
     } catch (e) {

@@ -69,6 +69,7 @@ export function SiteFooter() {
           <Link href="/leads">Fresh leads (Reddit &amp; Discord)</Link>
           <Link href="/find-clients">Find clients by profession</Link>
           <Link href="/templates">Outreach templates</Link>
+          <Link href="/tools/website-extractor">Website extractor</Link>
           <Link href="/tools/freelance-rate-calculator">Rate calculator</Link>
           <Link href="/tools/cold-email-checker">Cold email checker</Link>
         </div>

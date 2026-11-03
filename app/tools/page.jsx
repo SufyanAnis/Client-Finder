@@ -10,6 +10,7 @@ export const metadata = {
 
 const TOOLS = [
   { href: "/#finder", t: "AI lead finder", d: "Find real companies that need your service right now, with a fit score, the reason to reach out and a drafted first message." },
+  { href: "/tools/website-extractor", t: "Website contact extractor", d: "Paste business websites and get their public email, phone, WhatsApp and socials, what they do, their team and site issues to pitch on." },
   { href: "/tools/freelance-rate-calculator", t: "Freelance rate calculator", d: "Work out the minimum hourly and day rate that hits your income goal after expenses, tax and non-billable time." },
   { href: "/tools/cold-email-checker", t: "Cold email checker", d: "Score a cold email on length, spam triggers, clichés, links, readability and whether it ends with a clear ask." },
 ];

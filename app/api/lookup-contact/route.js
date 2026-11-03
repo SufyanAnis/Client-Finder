@@ -1,6 +1,7 @@
 // app/api/lookup-contact/route.js
-// On-demand public contact lookup for ONE lead (costs one web search), so
-// public searches stay at one web search each. Metered for visitors.
+// On-demand public contact lookup for ONE lead. Reads the company's own website
+// first (free, via lib/extract); only if that finds nothing does it spend a web
+// search. Metered for visitors.
 
 import { activeProvider, MISSING_KEY_MESSAGE } from "../../../lib/llm";
 import { searchAvailable } from "../../../lib/search";
@@ -8,6 +9,7 @@ import { enrichContacts } from "../../../lib/enrich";
 import { LIMITS, take } from "../../../lib/ratelimit";
 import { CAPACITY_MESSAGE } from "../../../lib/guard";
 import { meter, giveBack, limitMessage } from "../../../lib/access";
+import { extractSite } from "../../../lib/extract";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -30,6 +32,23 @@ export async function POST(req) {
 
   const m = await meter(req, "lookup");
   if (!m.ok) return Response.json({ error: limitMessage(m, "contact lookups"), code: m.who === "free" ? "paywall" : "limit" }, { status: 429 });
+
+  // 1) The company's own website, read directly — free, exact, no web-search credit.
+  if (lead.website) {
+    const site = await extractSite(lead.website, { useAi: false }).catch(() => null);
+    if (site?.ok && (site.emails.length || site.phones.length)) {
+      const contact = {
+        email: site.emails[0] || "",
+        phone: site.phones[0] || site.whatsapp[0] || "",
+        linkedin: site.socials.linkedin || "",
+        facebook: site.socials.facebook || "",
+        instagram: site.socials.instagram || "",
+      };
+      return Response.json({ contact, found: true, via: "website", remaining: m.remaining ?? null });
+    }
+  }
+
+  // 2) Fall back to a web search for the company's contact details.
   if (m.who === "free") {
     const g = await take("websearch", "global", LIMITS.webSearchesPerDay);
     if (!g.ok) {

@@ -15,6 +15,7 @@ export default function sitemap() {
     at("/find-clients", 0.8, "weekly"),
     at("/glossary", 0.7, "weekly"),
     at("/tools", 0.7),
+    at("/tools/website-extractor", 0.8),
     at("/tools/freelance-rate-calculator", 0.8),
     at("/tools/cold-email-checker", 0.8),
     ...blog.map((p) => at(`/blog/${p.slug}`, 0.8, "monthly", p.updated)),
