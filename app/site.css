@@ -244,3 +244,4 @@ a.kicker{ text-decoration:none; display:inline-block; }
 .leadrow-act{ display:flex; flex-direction:column; gap:8px; align-items:flex-end; flex-shrink:0; }
 .leadrow-act a.linkbtn{ text-decoration:none; }
 @media(max-width:600px){ .leadrow{ flex-direction:column; } .leadrow-act{ flex-direction:row; align-items:center; } }
+.co-name{ color:var(--gold); }

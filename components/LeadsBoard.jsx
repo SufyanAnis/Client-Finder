@@ -128,3 +128,53 @@ export function DiscordBoard({ posts }) {
     </>
   );
 }
+
+// Structured job feeds (Hacker News, Remote OK, We Work Remotely).
+// Links are followed (no "nofollow") — Remote OK's API terms require it.
+export function FeedBoard({ items, name }) {
+  const [cat, setCat] = useState("all");
+  const cats = useMemo(() => {
+    const m = {};
+    items.forEach((x) => (m[x.category] = (m[x.category] || 0) + 1));
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }, [items]);
+  const shown = items.filter((x) => cat === "all" || x.category === cat);
+  return (
+    <>
+      <div className="board-tools">
+        <div className="chips">
+          <button type="button" className={"chip" + (cat === "all" ? " on" : "")} onClick={() => setCat("all")}>All ({items.length})</button>
+          {cats.map(([c, n]) => (
+            <button key={c} type="button" className={"chip" + (cat === c ? " on" : "")} onClick={() => setCat(c)}>{c} ({n})</button>
+          ))}
+        </div>
+        <button type="button" className="btn export" disabled={!shown.length}
+          onClick={() => downloadCsv(`${name}-leads-${new Date().toISOString().slice(0, 10)}.csv`, shown.map((x) => ({ Source: x.source, Company: x.company, Role: x.title, Category: x.category, Location: x.location, Salary: x.salary, Posted: x.posted.slice(0, 10), Link: x.url })))}>
+          <FileSpreadsheet size={15} /> Export CSV
+        </button>
+      </div>
+      {shown.length === 0 ? <div className="pipe-empty">Nothing here right now — check back after the next refresh.</div> : (
+        <div className="leadlist">
+          {shown.map((x) => (
+            <div key={x.id} className="leadrow">
+              <div className="leadrow-main">
+                <a className="leadrow-t" href={x.url} target="_blank" rel="noopener">{x.company ? <><span className="co-name">{x.company}</span> — </> : null}{x.title}</a>
+                {x.detail && <div className="leadrow-text" style={{ marginTop: 4, color: "var(--muted)", fontSize: 13 }}>{x.detail}</div>}
+                <div className="leadrow-meta">
+                  <span>via {x.source}</span>
+                  <span>{x.category}</span>
+                  {x.location && <span>{x.location}</span>}
+                  <span>{ago(x.posted)}</span>
+                  {x.salary && <span className="budget">{x.salary}</span>}
+                </div>
+              </div>
+              <div className="leadrow-act">
+                <a className="linkbtn" href={x.url} target="_blank" rel="noopener"><ExternalLink size={13} /> open</a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
