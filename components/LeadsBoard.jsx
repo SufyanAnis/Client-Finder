@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, FileSpreadsheet, Copy, Check, Share2, MessageCircle, Linkedin, Send } from "lucide-react";
 
 const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -20,6 +20,28 @@ function useCopy() {
     setDone(key); setTimeout(() => setDone(""), 1600);
   };
   return [done, copy];
+}
+
+// Owner-only: queue a lead in the outreach agent (picked up when /agent opens).
+function useOwner() {
+  const [owner, setOwner] = useState(false);
+  useEffect(() => { try { setOwner(localStorage.getItem("fmc_owner") === "1"); } catch {} }, []);
+  return owner;
+}
+function toAgent(item) {
+  try {
+    const k = "fmc_agent_inbox";
+    const list = JSON.parse(localStorage.getItem(k) || "[]");
+    if (!list.some((x) => x.url === item.url)) list.push(item);
+    localStorage.setItem(k, JSON.stringify(list));
+    return true;
+  } catch { return false; }
+}
+function AgentBtn({ item }) {
+  const owner = useOwner();
+  const [done, setDone] = useState(false);
+  if (!owner) return null;
+  return <button type="button" className={"linkbtn" + (done ? " done" : "")} onClick={() => setDone(toAgent(item))}>{done ? "queued ✓" : "→ agent"}</button>;
 }
 
 const replyStarter = (title) =>
@@ -83,6 +105,7 @@ export function RedditBoard({ cats }) {
                   {done === p.id ? <><Check size={13} /> copied</> : <><Copy size={13} /> reply starter</>}
                 </button>
                 <a className="linkbtn" href={p.url} target="_blank" rel="noopener nofollow"><ExternalLink size={13} /> open</a>
+                <AgentBtn item={{ company: "r/" + p.subreddit, title: p.title, url: p.url, source: "Reddit", signal: p.budget ? "Budget " + p.budget : "" }} />
               </div>
             </div>
           ))}
@@ -171,6 +194,7 @@ export function FeedBoard({ items, name }) {
               </div>
               <div className="leadrow-act">
                 <a className="linkbtn" href={x.url} target="_blank" rel="noopener"><ExternalLink size={13} /> open</a>
+                <AgentBtn item={{ company: x.company || x.source, title: x.title, url: x.url, website: /Show HN|Launch HN/.test(x.source) ? x.url : "", source: x.source, location: x.location, signal: [x.jobType, x.salary].filter(Boolean).join(" · ") }} />
               </div>
             </div>
           ))}

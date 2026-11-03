@@ -1,6 +1,6 @@
 // middleware.js
-// The site is public. Only the owner's contact inbox (and its data API) needs
-// the owner login. The credit-spending APIs are public too, but metered per
+// The site is public. Only the owner's contact inbox, the outreach agent and
+// the Gmail connection (and their APIs) need the owner login. The credit-spending APIs are public too, but metered per
 // visitor in their route handlers (lib/ratelimit) — a signed-in owner skips the
 // meter there. If AUTH_PASSWORD isn't set the inbox lock is off, matching how
 // every other optional feature here degrades.
@@ -24,5 +24,5 @@ export async function middleware(req) {
 }
 
 export const config = {
-  matcher: ["/inbox/:path*", "/api/requests/:path*"],
+  matcher: ["/inbox/:path*", "/api/requests/:path*", "/agent/:path*", "/api/agent/:path*", "/api/gmail/:path*"],
 };
