@@ -30,6 +30,7 @@ export function kindFor(l) {
 const SOCIAL_LOG = "fmc_social_log";
 const PACE = { reddit: { perDay: 8, gapMin: 5, perSub: 2 }, x: { perDay: 15, gapMin: 3 } };
 const platformOf = (l) => (/x\.com|twitter\.com/i.test(l.url || "") || /x \(twitter\)/i.test(l.source || "") ? "x" : "reddit");
+const tweetId = (l) => ((l.url || "").match(/(?:x|twitter)\.com\/[^/]+\/status\/(\d+)/i) || [])[1] || "";
 const subOf = (l) => ((l.url || "").match(/reddit\.com\/r\/([^/]+)/i) || [])[1]?.toLowerCase() || "";
 function paceCheck(l) {
   const p = platformOf(l), rule = PACE[p], now = Date.now(), name = p === "x" ? "X" : "Reddit";
@@ -161,7 +162,9 @@ export default function Agent() {
       logSocial(l);
     }
     try { await navigator.clipboard.writeText(text ?? (l.draft.subject ? l.draft.subject + "\n\n" : "") + l.draft.body); } catch {}
-    window.open(l.url || (l.website && "https://" + host(l.website)), "_blank", "noopener");
+    // X's official reply intent opens the reply box already filled in — one click on "Reply" posts it
+    const tweet = l.kind === "reply" && text === l.draft.comment && tweetId(l);
+    window.open(tweet ? `https://x.com/intent/tweet?in_reply_to=${tweet}&text=${encodeURIComponent(text)}` : l.url || (l.website && "https://" + host(l.website)), "_blank", "noopener");
     upd(l.id, { status: l.kind === "reply" ? "sent" : "applied", sentAt: new Date().toISOString() });
   }
 
@@ -319,11 +322,11 @@ export default function Agent() {
                       <span className="label">{l.draft.recommend === "comment" ? "Public reply — post this (recommended)" : "Short public comment (optional)"}</span>
                       <textarea className="inp" rows={3} value={l.draft.comment} onChange={(e) => upd(l.id, { draft: { ...l.draft, comment: e.target.value } })} />
                       <div className="actions">
-                        <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => markDone(l, l.draft.recommend === "dm" ? l.draft.dm : l.draft.comment)}><ExternalLink size={16} /> Copy {l.draft.recommend === "dm" ? "DM" : "reply"} & open post — mark done</button>
+                        <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => markDone(l, l.draft.recommend === "dm" ? l.draft.dm : l.draft.comment)}><ExternalLink size={16} /> {l.draft.recommend === "comment" && tweetId(l) ? "Open reply on X (filled in) — mark done" : `Copy ${l.draft.recommend === "dm" ? "DM" : "reply"} & open post — mark done`}</button>
                         <CopyButton text={l.draft.recommend === "dm" ? l.draft.comment : l.draft.dm} />
                         <button className="btn" onClick={() => draft(l)} disabled={!!busy[l.id]}><RefreshCw size={14} /> Rewrite</button>
                       </div>
-                      <p className="fine">{l.draft.recommend === "dm" ? "On the post: click their username → Chat / Send message → paste. Copy gives you the short comment if you want to leave one too." : "Paste it as a reply under the post. Copy gives you the DM version."} Safe pace: Reddit {PACE.reddit.perDay}/day, {PACE.reddit.gapMin} min apart, {PACE.reddit.perSub} per subreddit; X {PACE.x.perDay}/day, {PACE.x.gapMin} min apart.</p>
+                      <p className="fine">{l.draft.recommend === "dm" ? "On the post: click their username → Chat / Send message → paste. Copy gives you the short comment if you want to leave one too." : tweetId(l) ? "X opens with your reply already typed — just press Reply. Copy gives you the DM version." : "Paste it as a reply under the post. Copy gives you the DM version."} Safe pace: Reddit {PACE.reddit.perDay}/day, {PACE.reddit.gapMin} min apart, {PACE.reddit.perSub} per subreddit; X {PACE.x.perDay}/day, {PACE.x.gapMin} min apart.</p>
                     </>
                   ) : <>
                   {l.kind === "email" && <input className="inp" value={l.draft.to} placeholder="recipient@company.com" onChange={(e) => upd(l.id, { draft: { ...l.draft, to: e.target.value } })} />}
