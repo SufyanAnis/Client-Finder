@@ -25,6 +25,24 @@ export function kindFor(l) {
   return l.website ? "email" : l.url ? "apply" : "email";
 }
 
+// Pacing for Reddit/X so the account looks human and stays clear of spam
+// filters: a daily cap per platform, a gap between posts, few per subreddit.
+const SOCIAL_LOG = "fmc_social_log";
+const PACE = { reddit: { perDay: 8, gapMin: 5, perSub: 2 }, x: { perDay: 15, gapMin: 3 } };
+const platformOf = (l) => (/x\.com|twitter\.com/i.test(l.url || "") || /x \(twitter\)/i.test(l.source || "") ? "x" : "reddit");
+const subOf = (l) => ((l.url || "").match(/reddit\.com\/r\/([^/]+)/i) || [])[1]?.toLowerCase() || "";
+function paceCheck(l) {
+  const p = platformOf(l), rule = PACE[p], now = Date.now(), name = p === "x" ? "X" : "Reddit";
+  const log = load(SOCIAL_LOG, []).filter((e) => now - e.at < DAY && e.platform === p);
+  if (log.length >= rule.perDay) return `Daily limit reached for ${name} (${rule.perDay}/day) — more than this starts to look like spam. Continue tomorrow.`;
+  const wait = Math.ceil((Math.max(0, ...log.map((e) => e.at)) + rule.gapMin * 60000 - now) / 60000);
+  if (wait > 0) return `Wait ${wait} more min before the next ${name} message — spacing them out keeps the account safe.`;
+  const sub = subOf(l);
+  if (sub && rule.perSub && log.filter((e) => e.sub === sub).length >= rule.perSub) return `Already ${rule.perSub} today in r/${sub} — pick a post from another subreddit.`;
+  return "";
+}
+const logSocial = (l) => save(SOCIAL_LOG, [...load(SOCIAL_LOG, []).filter((e) => Date.now() - e.at < DAY), { platform: platformOf(l), sub: subOf(l), at: Date.now() }]);
+
 const STATUS_LABEL = { new: "New", drafted: "Draft ready", sent: "Sent", applied: "Applied", replied: "Replied", won: "Won", lost: "Closed", stopped: "Stopped" };
 
 async function post(url, body) {
@@ -73,12 +91,14 @@ export default function Agent() {
   async function draft(l, type) {
     flag(l.id, "draft"); setMsg("");
     try {
-      const d = await post("/api/agent/draft", { type: type || (l.kind === "email" ? (l.applyByEmail ? "apply" : "email") : l.kind), lead: l, profile: { ...st.profile, hasCv: !!cv }, research: l.research, skipResearch: !!l.research, thread: l.messages || [] });
+      // earlier Reddit/X messages, so the new one doesn't repeat their wording
+      const recent = l.kind === "reply" ? st.leads.filter((x) => x.kind === "reply" && x.draft && x.id !== l.id).slice(0, 4).flatMap((x) => [x.draft.dm, x.draft.comment].filter(Boolean)) : [];
+      const d = await post("/api/agent/draft", { recent, type: type || (l.kind === "email" ? (l.applyByEmail ? "apply" : "email") : l.kind), lead: l, profile: { ...st.profile, hasCv: !!cv }, research: l.research, skipResearch: !!l.research, thread: l.messages || [] });
       if (d.skip) { upd(l.id, { status: "stopped", skipReason: d.skip, research: d.research }); setMsg(`Skipped ${l.company || host(l.website)}: ${d.skip}`); flag(l.id, false); return; }
       const applyEmail = l.kind === "apply" ? d.research?.applyEmail || "" : "";
       const to = l.email || applyEmail || d.research?.emails?.[0] || "";
       if (["followup", "response"].includes(type)) upd(l.id, { pending: { type, subject: d.subject, body: d.body } });
-      else upd(l.id, { status: "drafted", research: d.research, email: to, draft: { subject: d.subject, body: d.body, to }, kind: applyEmail ? "email" : l.kind === "apply" || l.kind === "reply" ? l.kind : to ? "email" : l.url ? "apply" : "email", applyByEmail: l.applyByEmail || !!applyEmail });
+      else upd(l.id, { status: "drafted", research: d.research, email: to, draft: { subject: d.subject, body: d.body, to, ...(d.dm !== undefined ? { comment: d.comment, dm: d.dm, recommend: d.recommend, hint: d.hint } : {}) }, kind: applyEmail ? "email" : l.kind === "apply" || l.kind === "reply" ? l.kind : to ? "email" : l.url ? "apply" : "email", applyByEmail: l.applyByEmail || !!applyEmail });
     } catch (e) { setMsg(`${l.company || host(l.website)}: ${e.message}`); }
     flag(l.id, false);
   }
@@ -134,8 +154,13 @@ export default function Agent() {
     flag(l.id, false);
   }
 
-  async function markDone(l) {
-    try { await navigator.clipboard.writeText((l.draft.subject ? l.draft.subject + "\n\n" : "") + l.draft.body); } catch {}
+  async function markDone(l, text) {
+    if (l.kind === "reply") {
+      const why = paceCheck(l);
+      if (why) { setMsg(why); return; }
+      logSocial(l);
+    }
+    try { await navigator.clipboard.writeText(text ?? (l.draft.subject ? l.draft.subject + "\n\n" : "") + l.draft.body); } catch {}
     window.open(l.url || (l.website && "https://" + host(l.website)), "_blank", "noopener");
     upd(l.id, { status: l.kind === "reply" ? "sent" : "applied", sentAt: new Date().toISOString() });
   }
@@ -286,6 +311,21 @@ export default function Agent() {
                 <div className="actions"><button className="btn" onClick={() => draft(l)} disabled={!!busy[l.id]}>{busy[l.id] ? <><Loader2 className="spin" size={15} /> Researching…</> : <><Sparkles size={15} /> Research & draft</>}</button></div>
               ) : (
                 <div className="agent-draft">
+                  {l.kind === "reply" && l.draft.dm !== undefined ? (
+                    <>
+                      <div className="fine">💡 {l.draft.hint}</div>
+                      <span className="label">{l.draft.recommend === "dm" ? "DM — send this (recommended)" : "DM — only if the post asks for DMs"}</span>
+                      <textarea className="inp" rows={6} value={l.draft.dm} onChange={(e) => upd(l.id, { draft: { ...l.draft, dm: e.target.value } })} />
+                      <span className="label">{l.draft.recommend === "comment" ? "Public reply — post this (recommended)" : "Short public comment (optional)"}</span>
+                      <textarea className="inp" rows={3} value={l.draft.comment} onChange={(e) => upd(l.id, { draft: { ...l.draft, comment: e.target.value } })} />
+                      <div className="actions">
+                        <button className="go" style={{ width: "auto", padding: "11px 18px" }} onClick={() => markDone(l, l.draft.recommend === "dm" ? l.draft.dm : l.draft.comment)}><ExternalLink size={16} /> Copy {l.draft.recommend === "dm" ? "DM" : "reply"} & open post — mark done</button>
+                        <CopyButton text={l.draft.recommend === "dm" ? l.draft.comment : l.draft.dm} />
+                        <button className="btn" onClick={() => draft(l)} disabled={!!busy[l.id]}><RefreshCw size={14} /> Rewrite</button>
+                      </div>
+                      <p className="fine">{l.draft.recommend === "dm" ? "On the post: click their username → Chat / Send message → paste. Copy gives you the short comment if you want to leave one too." : "Paste it as a reply under the post. Copy gives you the DM version."} Safe pace: Reddit {PACE.reddit.perDay}/day, {PACE.reddit.gapMin} min apart, {PACE.reddit.perSub} per subreddit; X {PACE.x.perDay}/day, {PACE.x.gapMin} min apart.</p>
+                    </>
+                  ) : <>
                   {l.kind === "email" && <input className="inp" value={l.draft.to} placeholder="recipient@company.com" onChange={(e) => upd(l.id, { draft: { ...l.draft, to: e.target.value } })} />}
                   {l.kind !== "reply" && <input className="inp" value={l.draft.subject} onChange={(e) => upd(l.id, { draft: { ...l.draft, subject: e.target.value } })} />}
                   <textarea className="inp" rows={8} value={l.draft.body} onChange={(e) => upd(l.id, { draft: { ...l.draft, body: e.target.value } })} />
@@ -301,6 +341,7 @@ export default function Agent() {
                     <button className="btn" onClick={() => draft(l)} disabled={!!busy[l.id]}><RefreshCw size={14} /> Rewrite</button>
                     <CopyButton text={(l.draft.subject ? l.draft.subject + "\n\n" : "") + l.draft.body} />
                   </div>
+                  </>}
                 </div>
               )}
             </div>

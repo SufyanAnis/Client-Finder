@@ -13,7 +13,7 @@ export async function POST(req) {
   const type = ["email", "apply", "reply", "followup", "response"].includes(b?.type) ? b.type : "email";
   try {
     const r = b?.skipResearch && b?.research ? b.research : await research(lead);
-    const msg = await writeMessage({ type, lead, profile: b?.profile || {}, research: r, thread: Array.isArray(b?.thread) ? b.thread : [] });
+    const msg = await writeMessage({ type, lead, profile: b?.profile || {}, research: r, thread: Array.isArray(b?.thread) ? b.thread : [], recent: Array.isArray(b?.recent) ? b.recent.map(String) : [] });
     return Response.json({ ...msg, research: r });
   } catch (e) {
     return Response.json({ error: e.message || "Draft failed" }, { status: 502 });
